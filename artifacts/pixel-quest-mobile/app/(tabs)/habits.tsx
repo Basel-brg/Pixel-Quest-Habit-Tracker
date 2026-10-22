@@ -13,6 +13,8 @@ import { useState } from 'react';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
+import { HabitReminderControls } from '@/components/HabitReminderControls';
+import { useHabitReminders } from '@/lib/habit-reminders';
 import {
   dateKey,
   invalidatePixelQuest,
@@ -37,6 +39,7 @@ const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export default function HabitsScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
+  const reminders = useHabitReminders();
   const [showArchived, setShowArchived] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -102,7 +105,9 @@ export default function HabitsScreen() {
     if (editingId) {
       updateHabit.mutate(
         { habitId: editingId, data: habitData },
-        { onSuccess: updated },
+        { onSuccess: async habit => {
+          try { await reminders.syncHabit(habit); } finally { updated(); }
+        } },
       );
     } else {
       createHabit.mutate({ data: habitData }, { onSuccess: updated });
@@ -146,6 +151,7 @@ export default function HabitsScreen() {
         <ChoiceChip label="ACTIVE" selected={!showArchived} onPress={() => { setShowArchived(false); clearForm(); }} testID="filter-habits-active" />
         <ChoiceChip label="ARCHIVED" selected={showArchived} onPress={() => { setShowArchived(true); clearForm(); }} testID="filter-habits-archived" />
       </View>
+      {reminders.error ? <ErrorState message={reminders.error} retry={reminders.retry} /> : null}
 
       {showForm ? (
         <Panel>
@@ -292,7 +298,9 @@ export default function HabitsScreen() {
                   onPress={() =>
                     updateHabit.mutate(
                       { habitId: habit.id, data: { archived: !showArchived } },
-                      { onSuccess: () => invalidatePixelQuest(queryClient) },
+                      { onSuccess: async changed => {
+                        try { await reminders.syncHabit(changed); } finally { invalidatePixelQuest(queryClient); }
+                      } },
                     )
                   }
                   style={styles.iconAction}
@@ -301,6 +309,7 @@ export default function HabitsScreen() {
                   <Text style={[styles.actionLabel, { color: colors.mutedForeground }]}>{showArchived ? 'RESTORE' : 'ARCHIVE'}</Text>
                 </Pressable>
               </View>
+              <HabitReminderControls habit={habit} />
             </Panel>
           );
         }) : (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ThemeProvider } from '@/lib/theme';
+import { HabitRemindersProvider } from '@/lib/habit-reminders';
 import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { tokenCache } from '@clerk/expo/token-cache';
@@ -41,13 +42,15 @@ function RootLayoutNav() {
     return () => { setTokenReady(false); setAuthTokenGetter(null); };
   }, [userId, getToken]);
   return (
-    <ThemeProvider key={userId ?? 'signed-out'} userId={userId} enabled={tokenReady && !!userId}>
+    <HabitRemindersProvider enabled={tokenReady}>
+      <ThemeProvider key={userId ?? 'signed-out'} userId={userId} enabled={tokenReady && !!userId}>
       <Stack screenOptions={{ headerBackTitle: 'Back' }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
       </Stack>
-    </ThemeProvider>
+      </ThemeProvider>
+    </HabitRemindersProvider>
   );
 }
 

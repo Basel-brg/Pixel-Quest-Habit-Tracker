@@ -9,6 +9,7 @@ import { ErrorState, Field, LoadingState, MetaText, Panel, PixelButton, PixelPag
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/lib/theme';
 import { THEME_IDS, THEMES } from '@/constants/themes';
+import { useHabitReminders } from '@/lib/habit-reminders';
 
 export default function SettingsScreen() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -16,11 +17,13 @@ export default function SettingsScreen() {
   const qc = useQueryClient();
   const { signOut } = useClerk();
   const theme = useTheme();
+  const reminders = useHabitReminders();
   const query = useGetPixelQuestProfile();
   const update = useUpdatePixelQuestProfile();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
   useEffect(() => { if (query.data) setUsername(query.data.username); }, [query.data?.username]);
   if (isLoaded && !isSignedIn) return <Redirect href="/(auth)/sign-in" />;
   const back = () => { if (router.canGoBack()) router.back(); else router.replace('/(tabs)/profile'); };
@@ -50,6 +53,12 @@ export default function SettingsScreen() {
       {error?<Text accessibilityRole="alert" style={{color:colors.destructive}}>{error}</Text>:null}
       {notice?<Text accessibilityRole="alert" style={{color:colors.success}}>{notice}</Text>:null}
     </Panel>
-    <PixelButton label="Log out" tone="danger" testID="profile-logout" onPress={() => { qc.clear(); void signOut(); }} />
+    <PixelButton label={loggingOut ? 'Logging out...' : 'Log out'} disabled={loggingOut} tone="danger" testID="profile-logout" onPress={() => {
+      setLoggingOut(true); setError('');
+      void reminders.prepareSignOut().then(() => { qc.clear(); return signOut(); }).catch(() => {
+        setError('Could not safely cancel reminders and log out. Please try again.');
+        reminders.retry();
+      }).finally(() => setLoggingOut(false));
+    }} />
   </PixelPage>;
 }
