@@ -4,6 +4,8 @@ import { Activity, BookOpen, ChevronRight, Gamepad2, Gift, MoreHorizontal, Packa
 import { cx, ServerError } from '@/components/kit';
 import { usePrefs } from '@/lib/feedback';
 import { useRpg } from '@/lib/rpg-context';
+import AchievementShareDialog from '@/components/achievement-share-dialog';
+import { useTheme } from '@/lib/theme';
 
 const nav = [
   { href: '/camp', label: 'Camp', short: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', short: 'Habits', icon: Activity },
@@ -13,7 +15,9 @@ const nav = [
   { href: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
 ];
 export function Shell({ children }: { children: ReactNode }) {
-  const [path] = useLocation(); const prefs = usePrefs(); const { snap, notice } = useRpg();
+  const [path] = useLocation(); const prefs = usePrefs();
+  const { snap, notice, shareMilestone, dismissShareMilestone } = useRpg();
+  const { theme } = useTheme();
   const slug = (s: string) => s.toLowerCase().replaceAll(' ', '-');
   return <div className={cx('min-h-[100dvh] text-[color:var(--pq-ink)]', prefs.scanlines && 'scanlines')}>
     <div className="mx-auto flex min-h-[100dvh] max-w-[1440px]">
@@ -34,6 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
     </div>
     <MobileNav path={path} slug={slug}/>
+    {shareMilestone && snap && <AchievementShareDialog milestone={shareMilestone} snapshot={snap} themeId={theme} onClose={dismissShareMilestone}/>}
   </div>;
 }
 

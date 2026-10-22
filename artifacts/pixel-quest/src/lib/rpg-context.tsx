@@ -4,6 +4,7 @@ import { useUser } from '@clerk/react';
 import { getGetRpgStateQueryKey, useGetRpgState, usePerformRpgAction } from '@workspace/api-client-react';
 import type { RpgActionInput, RpgSnapshot } from '@workspace/api-client-react';
 import { cue, reducedMotion } from '@/lib/feedback';
+import { discoverNewlyReadyRewards, discoverShareMilestones, type ShareMilestone } from '@/lib/share-milestones';
 
 export type ActionInput = Omit<RpgActionInput, 'requestId'>;
 export interface RunOptions { optimistic?: (s: RpgSnapshot) => RpgSnapshot; key?: string }
@@ -13,6 +14,7 @@ interface RpgCtx {
   run: (input: ActionInput, opts?: RunOptions) => Promise<RpgSnapshot | null>;
   isPending: (key: string) => boolean; anyPending: boolean;
   error: string; clearError: () => void; notice: string; userId: string | null;
+  shareMilestone: ShareMilestone | null; dismissShareMilestone: () => void; openPlayerCard: () => void;
 }
 const Ctx = createContext<RpgCtx | null>(null);
 export function useRpg(): RpgCtx { const c = useContext(Ctx); if (!c) throw new Error('useRpg outside RpgProvider'); return c; }
@@ -29,6 +31,8 @@ export function RpgProvider({ children }: { children: ReactNode }) {
   const { user, isSignedIn } = useUser();
   const userId = user?.id ?? null;
   const pendingRef = useRef(new Set<string>());
+  const readySeenRef = useRef(new Map<string, Set<number>>());
+  const shareSeenRef = useRef(new Map<string, Set<string>>());
   const qk = useMemo(() => [...getGetRpgStateQueryKey(), userId], [userId]);
   const q = useGetRpgState({ query: { enabled: !!isSignedIn, queryKey: qk, refetchInterval: () => pendingRef.current.size ? false : 30000, refetchOnWindowFocus: () => pendingRef.current.size === 0, staleTime: 10000 } });
   const mutation = usePerformRpgAction();
@@ -36,10 +40,12 @@ export function RpgProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const [shareQueue, setShareQueue] = useState<ShareMilestone[]>([]);
   const noticeTimer = useRef<number | undefined>(undefined); const celTimer = useRef<number | undefined>(undefined);
   const userRef = useRef(userId); userRef.current = userId;
   useEffect(() => {
     setError(''); setNotice(''); setCelebration(null);
+    setShareQueue([]);
     window.clearTimeout(noticeTimer.current); window.clearTimeout(celTimer.current);
   }, [userId]);
 
@@ -47,20 +53,61 @@ export function RpgProvider({ children }: { children: ReactNode }) {
     cue(kind); setCelebration({ id: Date.now(), kind, text });
     window.clearTimeout(celTimer.current); celTimer.current = window.setTimeout(() => setCelebration(null), 2600);
   }, []);
+  const enqueueShare = useCallback((milestone: ShareMilestone, persist = true) => {
+    const uid = userRef.current;
+    if (!uid) return;
+    if (persist) {
+      const key = `pq:share-seen:${uid}`;
+      let seen = shareSeenRef.current.get(uid);
+      if (!seen) {
+        seen = new Set<string>();
+        try {
+          const stored = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown;
+          if (Array.isArray(stored)) stored.filter((id): id is string => typeof id === 'string').forEach(id => seen?.add(id));
+        } catch { /* Continue with in-memory deduplication if storage is unavailable. */ }
+      }
+      if (seen.has(milestone.id)) return;
+      seen.add(milestone.id);
+      shareSeenRef.current.set(uid, seen);
+      try {
+        localStorage.setItem(key, JSON.stringify([...seen].slice(-200)));
+      } catch { /* A blocked storage API should not prevent sharing a fresh milestone. */ }
+    }
+    setCelebration(null); window.clearTimeout(celTimer.current);
+    setShareQueue(queue => queue.some(item => item.id === milestone.id) ? queue : [...queue, milestone]);
+  }, []);
+  const dismissShareMilestone = useCallback(() => setShareQueue(queue => queue.slice(1)), []);
+  const openPlayerCard = useCallback(() => enqueueShare({
+    id: `player:${userRef.current}:${Date.now()}`,
+    type: 'player',
+    headline: 'Your Player Card',
+    detail: 'A snapshot of your Pixel Quest journey.',
+  }, false), [enqueueShare]);
   /** Returns true when a brand-new READY reward was celebrated. Deduped per account + reward. */
   const detectUnlock = useCallback((s: RpgSnapshot): boolean => {
     const uid = userRef.current; if (!uid) return false;
     const key = `pq:ready-seen:${uid}`;
-    const ready = s.rewards.filter((r) => r.status === 'ready');
     let stored: number[] | null = null;
-    try { const raw = localStorage.getItem(key); stored = raw ? (JSON.parse(raw) as number[]) : null; } catch { stored = null; }
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) as unknown : null;
+      stored = Array.isArray(parsed) ? parsed.filter((id): id is number => typeof id === 'number') : null;
+    } catch { stored = null; }
+    if (!stored) {
+      const memorySeen = readySeenRef.current.get(uid);
+      if (memorySeen) stored = [...memorySeen];
+    }
     const seen = new Set(stored ?? []);
-    const fresh = ready.filter((r) => !seen.has(r.id));
-    ready.forEach((r) => seen.add(r.id));
-    localStorage.setItem(key, JSON.stringify([...seen]));
-    if (stored && fresh.length) { celebrate('reward', `Reward ready: ${fresh[0].title}`); return true; }
+    const fresh = discoverNewlyReadyRewards(s, seen);
+    s.rewards.filter((reward) => reward.status === 'ready').forEach((reward) => seen.add(reward.id));
+    readySeenRef.current.set(uid, seen);
+    try { localStorage.setItem(key, JSON.stringify([...seen])); } catch { /* Keep account-scoped in-memory deduplication. */ }
+    if (stored && fresh.length) {
+      for (const reward of fresh) enqueueShare({ id: `reward:${reward.id}`, type: 'reward', headline: 'Real-Life Reward Unlocked', detail: reward.title });
+      return true;
+    }
     return false;
-  }, [celebrate]);
+  }, [enqueueShare]);
 
   const snap = q.data;
   useEffect(() => { if (snap) detectUnlock(snap); }, [snap, detectUnlock]);
@@ -88,8 +135,11 @@ export function RpgProvider({ children }: { children: ReactNode }) {
       await qc.cancelQueries({ queryKey: qk });
       qc.setQueryData(qk, result);
       const unlocked = detectUnlock(result);
+      if (prev) {
+        for (const milestone of discoverShareMilestones(prev, result)) enqueueShare(milestone);
+      }
       if (result.effect === 'complete') cue(result.bosses.some(b => b.hp > 0 && b.hp < (prev?.bosses.find(old => old.id === b.id)?.hp ?? b.hp)) ? 'boss' : 'complete');
-      else if (result.effect === 'boss') celebrate('boss', result.message || 'Boss defeated');
+      else if (result.effect === 'boss') cue('boss');
       else if (result.effect === 'reward' && !unlocked) celebrate('reward', result.message || 'Reward claimed');
       if (result.message) { setNotice(result.message); window.clearTimeout(noticeTimer.current); noticeTimer.current = window.setTimeout(() => setNotice(''), 5000); }
       return result;
@@ -103,13 +153,14 @@ export function RpgProvider({ children }: { children: ReactNode }) {
       pendingRef.current.delete(key); setPending(new Set(pendingRef.current));
        if (userRef.current === actor) void qc.invalidateQueries({ queryKey: qk });
     }
-  }, [qc, qk, detectUnlock, celebrate]);
+  }, [qc, qk, detectUnlock, celebrate, enqueueShare]);
 
   const value = useMemo<RpgCtx>(() => ({
     snap, isLoading: !snap && !q.isError && !!isSignedIn, isError: !snap && q.isError, refetch: () => void q.refetch(),
      run, isPending: () => pending.size > 0, anyPending: pending.size > 0, error, clearError: () => setError(''), notice, userId,
+     shareMilestone: shareQueue[0] ?? null, dismissShareMilestone, openPlayerCard,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, q.isError, isSignedIn, run, pending, error, notice, userId]);
+  }), [snap, q.isError, isSignedIn, run, pending, error, notice, userId, shareQueue, dismissShareMilestone, openPlayerCard]);
 
   return <Ctx.Provider value={value}>{children}
     {celebration && <div key={celebration.id} data-testid="celebration" aria-live="polite" className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">

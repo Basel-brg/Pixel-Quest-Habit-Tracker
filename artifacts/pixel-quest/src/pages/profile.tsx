@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, CircleDollarSign, Flame, LockKeyhole, Pencil, Shield, Swords, Trophy } from 'lucide-react';
+import { Check, CircleDollarSign, Flame, LockKeyhole, Pencil, Share2, Shield, Swords, Trophy } from 'lucide-react';
 import { PixelAvatar } from '@/components/pixel-avatar';
 import { Gate, Modal, PageHead, Panel, SectionHead, cx } from '@/components/kit';
 import { useRpg } from '@/lib/rpg-context';
@@ -7,13 +7,13 @@ import { themedLabel } from '@/lib/avatar-art';
 import { useTheme } from '@/lib/theme';
 
 export default function ProfilePage() {
-  const { run, isPending, clearError } = useRpg(); const { theme } = useTheme();
+  const { run, isPending, clearError, openPlayerCard } = useRpg(); const { theme } = useTheme();
   const [picker, setPicker] = useState(false);
   return <Gate>{(s) => {
     const p = s.profile; const current0 = p.avatars.find((a) => a.id === p.avatarId); const lab = (a: { id: typeof p.avatarId; name: string; role: string }) => themedLabel(theme, a.id, a); const current = current0 && { ...current0, ...lab(current0) };
     const stats = [{ k: 'Level', v: p.level, i: Shield }, { k: 'Lifetime XP', v: p.xp, i: Swords }, { k: 'Gold', v: p.gold, i: CircleDollarSign }, { k: 'Quests vanquished', v: p.lifetimeTasksVanquished, i: Trophy }, { k: 'Best streak', v: `${p.highestHabitStreak}d`, i: Flame }];
     return <>
-      <PageHead eyebrow="Hero sheet" title="Your profile"/>
+      <PageHead eyebrow="Hero sheet" title="Your profile" action={<button type="button" data-testid="button-export-player-card" onClick={openPlayerCard} className="pixel-button flex min-h-11 items-center gap-2 border-2 border-[color:var(--pq-gold)] bg-[color:var(--pq-panel2)] px-4 py-2 text-xs font-bold text-[color:var(--pq-gold)] transition-colors hover:bg-[color:var(--pq-line2)]"><Share2 size={15}/>Export player card</button>}/>
       <section className="pixel-border flex flex-col gap-6 bg-[color:var(--pq-panel)]/95 p-5 sm:flex-row sm:items-center md:p-6">
         <button data-testid="button-open-avatar-picker" onClick={() => { clearError(); setPicker(true); }} aria-label="Change avatar" className="relative w-fit border-2 border-[color:var(--pq-gold)] shadow-[4px_4px_0_var(--pq-shadow)]"><PixelAvatar id={p.avatarId} size={120} testId="img-current-avatar"/><span className="absolute bottom-1 right-1 grid h-6 w-6 place-items-center bg-[color:var(--pq-gold)] text-[color:var(--pq-onaccent)]"><Pencil size={12}/></span></button>
         <div className="min-w-0 flex-1"><p className="font-mono text-[9px] uppercase tracking-wider text-[color:var(--pq-mute)]">{current?.name} · {current?.role}</p>
