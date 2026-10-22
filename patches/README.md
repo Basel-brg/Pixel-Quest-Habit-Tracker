@@ -14,6 +14,10 @@ not repair it. Never treat the directory name or lockfile hash alone as proof
 that the installed code is protected. The suite also checks that Expo's Metro
 and code-signing consumers and the sandbox resolve to the exploit-tested copies.
 
+The post-merge setup runs these checks after installing dependencies. If they
+fail, it forces one frozen-lockfile re-import and checks again. A second failure
+stops setup before database changes, rather than accepting unprotected code.
+
 ## node-forge 1.4.0 — GHSA-86w9-cpqp-85rv
 
 No fixed release is available as of 2026-10-22. The patch enforces the nested

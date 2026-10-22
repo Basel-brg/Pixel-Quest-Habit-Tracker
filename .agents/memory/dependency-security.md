@@ -24,3 +24,12 @@ forced re-import restored the tracked patch and made the exploit checks pass.
 
 **How to apply:** When installed behavior contradicts a tracked patch, compare the
 actual source and use a frozen forced reinstall before changing a correct patch.
+
+Verify exploit behavior during environment setup, not only when editing patches.
+
+**Why:** Restoring dependencies can silently lose local patch contents without
+changing tracked files, so a previously passing security test is not evidence
+that the restored environment is still protected.
+
+**How to apply:** Keep setup fail-closed: allow one locked re-import to repair
+installed drift, then require the exploit checks to pass before continuing.
