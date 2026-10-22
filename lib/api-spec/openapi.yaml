@@ -286,6 +286,106 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Achievement"
+  /pixelquest/rewards:
+    get:
+      operationId: getRewards
+      tags: [pixel-quest]
+      summary: List reward shop items and their unlock progress
+      responses:
+        "200":
+          description: Reward shop items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reward"
+    post:
+      operationId: createReward
+      tags: [pixel-quest]
+      summary: Add a real-life reward
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardInput"
+      responses:
+        "201":
+          description: Created reward
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reward"
+        "400":
+          description: Invalid reward or unlock condition
+  /pixelquest/rewards/{rewardId}:
+    patch:
+      operationId: updateReward
+      tags: [pixel-quest]
+      summary: Edit an unclaimed reward
+      parameters:
+        - name: rewardId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardUpdate"
+      responses:
+        "200":
+          description: Updated reward
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reward"
+        "404":
+          description: Reward not found
+        "409":
+          description: Claimed rewards cannot be edited
+    delete:
+      operationId: deleteReward
+      tags: [pixel-quest]
+      summary: Remove an unclaimed reward
+      parameters:
+        - name: rewardId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Reward deleted
+        "404":
+          description: Reward not found
+        "409":
+          description: Claimed rewards cannot be deleted
+  /pixelquest/rewards/{rewardId}/claim:
+    post:
+      operationId: claimReward
+      tags: [pixel-quest]
+      summary: Claim an unlocked reward and archive it
+      parameters:
+        - name: rewardId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Claimed reward
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reward"
+        "404":
+          description: Reward not found
+        "409":
+          description: Reward is locked or already claimed
 components:
   schemas:
     HealthStatus:
@@ -373,9 +473,10 @@ components:
         dueDate: { type: [string, "null"], format: date }
     PlayerProfile:
       type: object
-      required: [xp, level, xpIntoLevel, xpToNextLevel, streak, title]
+      required: [xp, gold, level, xpIntoLevel, xpToNextLevel, streak, title]
       properties:
         xp: { type: integer }
+        gold: { type: integer }
         level: { type: integer }
         xpIntoLevel: { type: integer }
         xpToNextLevel: { type: integer }
@@ -418,4 +519,46 @@ components:
         profile: { $ref: "#/components/schemas/PlayerProfile" }
         leveledUp: { type: boolean }
         multiplier: { type: number }
+    RewardRuleType:
+      type: string
+      enum: [streak, gold, level]
+    RewardStatus:
+      type: string
+      enum: [locked, ready, claimed]
+    Reward:
+      type: object
+      required: [id, title, description, category, ruleType, target, habitId, habitTitle, currentValue, progressText, status, claimedAt, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        ruleType: { $ref: "#/components/schemas/RewardRuleType" }
+        target: { type: integer }
+        habitId: { type: ["integer", "null"] }
+        habitTitle: { type: ["string", "null"] }
+        currentValue: { type: integer }
+        progressText: { type: string }
+        status: { $ref: "#/components/schemas/RewardStatus" }
+        claimedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+    RewardInput:
+      type: object
+      required: [title, description, category, ruleType, target, habitId]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 300 }
+        category: { type: string, minLength: 1, maxLength: 40 }
+        ruleType: { $ref: "#/components/schemas/RewardRuleType" }
+        target: { type: integer, minimum: 1, maximum: 1000000 }
+        habitId: { type: ["integer", "null"] }
+    RewardUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 300 }
+        category: { type: string, minLength: 1, maxLength: 40 }
+        ruleType: { $ref: "#/components/schemas/RewardRuleType" }
+        target: { type: integer, minimum: 1, maximum: 1000000 }
+        habitId: { type: ["integer", "null"] }
 

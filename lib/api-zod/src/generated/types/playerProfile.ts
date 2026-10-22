@@ -8,6 +8,7 @@
 
 export interface PlayerProfile {
   xp: number;
+  gold: number;
   level: number;
   xpIntoLevel: number;
   xpToNextLevel: number;

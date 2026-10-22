@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { Activity, Archive, ArrowUpRight, CalendarDays, Check, CheckCircle2, ChevronRight, Circle, Clock3, Flame, Flag, Gamepad2, History, Medal, Plus, RotateCcw, Shield, Sparkles, Swords, Volume2, VolumeX, X } from 'lucide-react';
+import { Activity, Archive, ArrowUpRight, CalendarDays, Check, CheckCircle2, ChevronRight, Circle, Clock3, Flame, Flag, Gamepad2, Gift, History, Medal, Plus, RotateCcw, Shield, Sparkles, Swords, Volume2, VolumeX, X } from 'lucide-react';
 import type { Habit, QuestTask, TaskInput, HabitInput } from '@workspace/api-client-react';
 import {
   getGetAchievementsQueryKey, getGetHabitsQueryKey, getGetPixelQuestDashboardQueryKey, getGetTasksQueryKey,
@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import RewardsPage from '@/pages/rewards';
 
 const queryClient = new QueryClient();
 const today = () => new Date().toISOString().slice(0, 10);
@@ -61,7 +62,7 @@ function PixelHeading({ eyebrow, children, action }: {eyebrow?: string; children
 function Shell({ children }: {children: ReactNode}) {
   const [path] = useLocation();
   const audio = useChime();
-  const nav = [{ href: '/', label: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', icon: Activity }, { href: '/quests', label: 'Quest board', icon: Swords }];
+  const nav = [{ href: '/', label: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', icon: Activity }, { href: '/quests', label: 'Quest board', icon: Swords }, { href: '/rewards', label: 'Reward shop', icon: Gift }];
   return <div className="scanlines min-h-[100dvh] text-[#eee8da]">
     <div className="mx-auto flex min-h-[100dvh] max-w-[1440px]">
       <aside className="hidden w-[248px] shrink-0 border-r border-[#39354e] bg-[#171625]/75 px-5 py-7 md:flex md:flex-col">
@@ -82,7 +83,7 @@ function Shell({ children }: {children: ReactNode}) {
         <div className="mx-auto max-w-[1160px] px-4 py-7 md:px-8 md:py-9">{children}</div>
       </main>
     </div>
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-[#48435d] bg-[#171625]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">{nav.map(({href,label,icon:Icon})=><Link href={href} key={href} data-testid={`mobile-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex flex-col items-center gap-1.5 py-3 text-[11px] font-semibold no-underline',path===href?'text-[#f5ca62]':'text-[#938da6]')}><Icon size={19}/>{label}</Link>)}</nav>
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#48435d] bg-[#171625]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">{nav.map(({href,label,icon:Icon})=><Link href={href} key={href} data-testid={`mobile-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex flex-col items-center gap-1.5 py-3 text-[10px] font-semibold no-underline',path===href?'text-[#f5ca62]':'text-[#938da6]')}><Icon size={19}/>{label}</Link>)}</nav>
   </div>;
 }
 function LoadingState() { return <div className="space-y-4" aria-label="Loading"><div className="h-32 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="grid gap-4 md:grid-cols-2"><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/></div></div>; }
@@ -179,7 +180,7 @@ function QuestRow({task,onToggle,onEdit,onDelete,busy}:{task:QuestTask;onToggle:
 }
 function Router() {
   const [location]=useLocation();
-  return <ErrorBoundary resetKey={location}><Shell><Switch><Route path="/" component={DashboardPage}/><Route path="/habits" component={HabitPage}/><Route path="/quests" component={QuestPage}/><Route component={NotFound}/></Switch></Shell></ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}><Shell><Switch><Route path="/" component={DashboardPage}/><Route path="/habits" component={HabitPage}/><Route path="/quests" component={QuestPage}/><Route path="/rewards" component={RewardsPage}/><Route component={NotFound}/></Switch></Shell></ErrorBoundary>;
 }
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/,'')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;

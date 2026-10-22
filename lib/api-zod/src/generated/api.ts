@@ -23,6 +23,7 @@ export const HealthCheckResponse = zod.object({
 export const GetPixelQuestDashboardResponse = zod.object({
   "profile": zod.object({
   "xp": zod.number().int(),
+  "gold": zod.number().int(),
   "level": zod.number().int(),
   "xpIntoLevel": zod.number().int(),
   "xpToNextLevel": zod.number().int(),
@@ -140,6 +141,7 @@ export const CompleteHabitResponse = zod.object({
   "xpEarned": zod.number().int(),
   "profile": zod.object({
   "xp": zod.number().int(),
+  "gold": zod.number().int(),
   "level": zod.number().int(),
   "xpIntoLevel": zod.number().int(),
   "xpToNextLevel": zod.number().int(),
@@ -268,6 +270,7 @@ export const CompleteTaskResponse = zod.object({
   "xpEarned": zod.number().int(),
   "profile": zod.object({
   "xp": zod.number().int(),
+  "gold": zod.number().int(),
   "level": zod.number().int(),
   "xpIntoLevel": zod.number().int(),
   "xpToNextLevel": zod.number().int(),
@@ -310,5 +313,142 @@ export const GetAchievementsResponseItem = zod.object({
   "unlockedAt": zod.coerce.date().nullish()
 })
 export const GetAchievementsResponse = zod.array(GetAchievementsResponseItem)
+
+
+/**
+ * @summary List reward shop items and their unlock progress
+ */
+export const GetRewardsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const GetRewardsResponse = zod.array(GetRewardsResponseItem)
+
+
+/**
+ * @summary Add a real-life reward
+ */
+export const createRewardBodyTitleMax = 120;
+
+export const createRewardBodyDescriptionMax = 300;
+
+export const createRewardBodyCategoryMax = 40;
+
+export const createRewardBodyTargetMax = 1000000;
+
+
+
+export const CreateRewardBody = zod.object({
+  "title": zod.string().min(1).max(createRewardBodyTitleMax),
+  "description": zod.string().max(createRewardBodyDescriptionMax),
+  "category": zod.string().min(1).max(createRewardBodyCategoryMax),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int().min(1).max(createRewardBodyTargetMax),
+  "habitId": zod.number().int().nullable()
+})
+
+export const CreateRewardResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Edit an unclaimed reward
+ */
+export const UpdateRewardParams = zod.object({
+  "rewardId": zod.coerce.number().int()
+})
+
+export const updateRewardBodyTitleMax = 120;
+
+export const updateRewardBodyDescriptionMax = 300;
+
+export const updateRewardBodyCategoryMax = 40;
+
+export const updateRewardBodyTargetMax = 1000000;
+
+
+
+export const UpdateRewardBody = zod.object({
+  "title": zod.string().min(1).max(updateRewardBodyTitleMax).optional(),
+  "description": zod.string().max(updateRewardBodyDescriptionMax).optional(),
+  "category": zod.string().min(1).max(updateRewardBodyCategoryMax).optional(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']).optional(),
+  "target": zod.number().int().min(1).max(updateRewardBodyTargetMax).optional(),
+  "habitId": zod.number().int().nullish()
+})
+
+export const UpdateRewardResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove an unclaimed reward
+ */
+export const DeleteRewardParams = zod.object({
+  "rewardId": zod.coerce.number().int()
+})
+
+export const DeleteRewardResponse = zod.void()
+
+
+/**
+ * @summary Claim an unlocked reward and archive it
+ */
+export const ClaimRewardParams = zod.object({
+  "rewardId": zod.coerce.number().int()
+})
+
+export const ClaimRewardResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
 
 

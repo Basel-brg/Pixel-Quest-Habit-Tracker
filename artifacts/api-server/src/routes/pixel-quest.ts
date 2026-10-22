@@ -1,6 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
+  ClaimRewardParams,
+  ClaimRewardResponse,
   CompleteHabitBody,
   CompleteHabitParams,
   CompleteHabitResponse,
@@ -8,6 +10,8 @@ import {
   CompleteTaskResponse,
   CreateHabitBody,
   CreateHabitResponse,
+  CreateRewardBody,
+  CreateRewardResponse,
   CreateTaskBody,
   CreateTaskResponse,
   DeleteTaskParams,
@@ -15,6 +19,7 @@ import {
   GetHabitsQueryParams,
   GetHabitsResponse,
   GetPixelQuestDashboardResponse,
+  GetRewardsResponse,
   GetTasksQueryParams,
   GetTasksResponse,
   HabitCompletionUndoInput,
@@ -22,12 +27,16 @@ import {
   UndoHabitCompletionParams,
   UndoTaskCompletionParams,
   UndoTaskCompletionResponse,
+  UpdateRewardBody,
+  UpdateRewardParams,
+  UpdateRewardResponse,
   UpdateHabitBody,
   UpdateHabitParams,
   UpdateHabitResponse,
   UpdateTaskBody,
   UpdateTaskParams,
   UpdateTaskResponse,
+  DeleteRewardParams,
 } from "@workspace/api-zod";
 import {
   db,
@@ -35,6 +44,7 @@ import {
   habitsTable,
   playerProfileTable,
   questTasksTable,
+  rewardsTable,
 } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -91,23 +101,27 @@ function playerTitle(level: number): string {
   return "Novice Adventurer";
 }
 
-function makeProfile(xp: number, streak: number) {
+function makeProfile(xp: number, gold: number, streak: number) {
   const progress = levelForXp(xp);
   return {
     xp,
+    gold,
     ...progress,
     streak,
     title: playerTitle(progress.level),
   };
 }
 
-async function readXp(): Promise<number> {
+async function readBalances(): Promise<{ xp: number; gold: number }> {
   const [player] = await db
-    .select({ xp: playerProfileTable.xp })
+    .select({
+      xp: playerProfileTable.xp,
+      gold: playerProfileTable.gold,
+    })
     .from(playerProfileTable)
     .where(eq(playerProfileTable.id, 1))
     .limit(1);
-  return player?.xp ?? 0;
+  return { xp: player?.xp ?? 0, gold: player?.gold ?? 0 };
 }
 
 async function readHabitDates(): Promise<string[]> {
@@ -118,8 +132,8 @@ async function readHabitDates(): Promise<string[]> {
 }
 
 async function getPlayerProfile() {
-  const [xp, dates] = await Promise.all([readXp(), readHabitDates()]);
-  return makeProfile(xp, currentStreak(dates));
+  const [balances, dates] = await Promise.all([readBalances(), readHabitDates()]);
+  return makeProfile(balances.xp, balances.gold, currentStreak(dates));
 }
 
 function rewardMultiplier(streak: number): number {
@@ -131,11 +145,24 @@ function rewardMultiplier(streak: number): number {
 async function bumpXp(amount: number): Promise<void> {
   await db
     .insert(playerProfileTable)
-    .values({ id: 1, xp: amount })
+    .values({ id: 1, xp: amount, gold: amount })
     .onConflictDoUpdate({
       target: playerProfileTable.id,
-      set: { xp: sql`${playerProfileTable.xp} + ${amount}` },
+      set: {
+        xp: sql`${playerProfileTable.xp} + ${amount}`,
+        gold: sql`${playerProfileTable.gold} + ${amount}`,
+      },
     });
+}
+
+async function revokeXp(amount: number): Promise<void> {
+  await db
+    .update(playerProfileTable)
+    .set({
+      xp: sql`GREATEST(0, ${playerProfileTable.xp} - ${amount})`,
+      gold: sql`GREATEST(0, ${playerProfileTable.gold} - ${amount})`,
+    })
+    .where(eq(playerProfileTable.id, 1));
 }
 
 function mapHabit(row: typeof habitsTable.$inferSelect, completedDates: string[]) {
@@ -163,6 +190,79 @@ function mapTask(row: typeof questTasksTable.$inferSelect) {
     createdAt: row.createdAt,
     completedAt: row.completedAt,
   };
+}
+
+type RewardRule = "streak" | "gold" | "level";
+
+function mapReward(
+  row: typeof rewardsTable.$inferSelect,
+  currentValue: number,
+  habitTitle: string | null,
+) {
+  const ruleType = row.ruleType as RewardRule;
+  const status = row.claimedAt
+    ? "claimed"
+    : currentValue >= row.target
+      ? "ready"
+      : "locked";
+  const displayedValue =
+    status === "claimed" ? row.target : Math.min(currentValue, row.target);
+  const unit =
+    ruleType === "streak" ? "days" : ruleType === "gold" ? "Gold" : "level";
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    ruleType,
+    target: row.target,
+    habitId: row.habitId,
+    habitTitle,
+    currentValue: displayedValue,
+    progressText:
+      status === "claimed"
+        ? "CLAIMED"
+        : `${displayedValue} / ${row.target} ${unit}`,
+    status,
+    claimedAt: row.claimedAt,
+    createdAt: row.createdAt,
+  };
+}
+
+function rewardCurrentValue(
+  row: typeof rewardsTable.$inferSelect,
+  profile: ReturnType<typeof makeProfile>,
+  datesByHabit: Map<number, string[]>,
+): number {
+  if (row.ruleType === "gold") return profile.gold;
+  if (row.ruleType === "level") return profile.level;
+  if (row.ruleType === "streak" && row.habitId) {
+    return currentStreak(datesByHabit.get(row.habitId) ?? []);
+  }
+  return 0;
+}
+
+async function rewardRuleError(
+  ruleType: RewardRule,
+  target: number,
+  habitId: number | null,
+): Promise<string | null> {
+  if (ruleType === "streak") {
+    if (!habitId) return "Choose an active habit for a streak reward.";
+    if (target > 3650) return "Streak targets cannot exceed 3,650 days.";
+    const [habit] = await db
+      .select({ id: habitsTable.id })
+      .from(habitsTable)
+      .where(and(eq(habitsTable.id, habitId), eq(habitsTable.archived, false)))
+      .limit(1);
+    if (!habit) return "Choose an active habit for a streak reward.";
+    return null;
+  }
+  if (habitId !== null) return "Only streak rewards can be linked to a habit.";
+  if (ruleType === "level" && target > 100) {
+    return "Level targets cannot exceed level 100.";
+  }
+  return null;
 }
 
 router.get("/pixelquest/dashboard", async (_req, res): Promise<void> => {
@@ -363,7 +463,7 @@ router.put(
       return;
     }
 
-    const xpBefore = await readXp();
+    const { xp: xpBefore } = await readBalances();
     const [allDates, existing] = await Promise.all([
       readHabitDates(),
       db
@@ -435,12 +535,7 @@ router.delete(
     await db
       .delete(habitCompletionsTable)
       .where(eq(habitCompletionsTable.id, completion.id));
-    await db
-      .update(playerProfileTable)
-      .set({
-        xp: sql`GREATEST(0, ${playerProfileTable.xp} - ${completion.xpAwarded})`,
-      })
-      .where(eq(playerProfileTable.id, 1));
+    await revokeXp(completion.xpAwarded);
     res.sendStatus(204);
   },
 );
@@ -552,7 +647,7 @@ router.put(
       res.status(404).json({ error: "Task not found" });
       return;
     }
-    const xpBefore = await readXp();
+    const { xp: xpBefore } = await readBalances();
     let xpEarned = 0;
     if (task.status !== "completed") {
       xpEarned = TASK_XP[task.difficulty as Difficulty] ?? TASK_XP.medium;
@@ -600,12 +695,7 @@ router.delete(
         .update(questTasksTable)
         .set({ status: "active", completedAt: null, xpAwarded: 0 })
         .where(eq(questTasksTable.id, task.id));
-      await db
-        .update(playerProfileTable)
-        .set({
-          xp: sql`GREATEST(0, ${playerProfileTable.xp} - ${task.xpAwarded})`,
-        })
-        .where(eq(playerProfileTable.id, 1));
+      await revokeXp(task.xpAwarded);
     }
     const [updatedTask] = await db
       .select()
@@ -665,5 +755,293 @@ router.get("/pixelquest/achievements", async (_req, res): Promise<void> => {
   ];
   res.json(GetAchievementsResponse.parse(milestones));
 });
+
+router.get("/pixelquest/rewards", async (_req, res): Promise<void> => {
+  const [rows, profile, completions, habits] = await Promise.all([
+    db.select().from(rewardsTable).orderBy(desc(rewardsTable.createdAt)),
+    getPlayerProfile(),
+    db
+      .select({
+        habitId: habitCompletionsTable.habitId,
+        date: habitCompletionsTable.date,
+      })
+      .from(habitCompletionsTable),
+    db.select({ id: habitsTable.id, title: habitsTable.title }).from(habitsTable),
+  ]);
+  const datesByHabit = new Map<number, string[]>();
+  for (const completion of completions) {
+    const dates = datesByHabit.get(completion.habitId) ?? [];
+    dates.push(completion.date);
+    datesByHabit.set(completion.habitId, dates);
+  }
+  const habitTitles = new Map(habits.map((habit) => [habit.id, habit.title]));
+  res.json(
+    GetRewardsResponse.parse(
+      rows.map((row) =>
+        mapReward(
+          row,
+          rewardCurrentValue(row, profile, datesByHabit),
+          row.habitId ? habitTitles.get(row.habitId) ?? null : null,
+        ),
+      ),
+    ),
+  );
+});
+
+router.post("/pixelquest/rewards", async (req, res): Promise<void> => {
+  const parsed = CreateRewardBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const validationError = await rewardRuleError(
+    parsed.data.ruleType,
+    parsed.data.target,
+    parsed.data.habitId,
+  );
+  if (validationError) {
+    res.status(400).json({ error: validationError });
+    return;
+  }
+  const [row] = await db
+    .insert(rewardsTable)
+    .values(parsed.data)
+    .returning();
+  const [profile, completions] = await Promise.all([
+    getPlayerProfile(),
+    db
+      .select({
+        habitId: habitCompletionsTable.habitId,
+        date: habitCompletionsTable.date,
+      })
+      .from(habitCompletionsTable),
+  ]);
+  const datesByHabit = new Map<number, string[]>();
+  for (const completion of completions) {
+    const dates = datesByHabit.get(completion.habitId) ?? [];
+    dates.push(completion.date);
+    datesByHabit.set(completion.habitId, dates);
+  }
+  const [habit] = row.habitId
+    ? await db
+        .select({ title: habitsTable.title })
+        .from(habitsTable)
+        .where(eq(habitsTable.id, row.habitId))
+        .limit(1)
+    : [];
+  res.status(201).json(
+    CreateRewardResponse.parse(
+      mapReward(
+        row,
+        rewardCurrentValue(row, profile, datesByHabit),
+        habit?.title ?? null,
+      ),
+    ),
+  );
+});
+
+router.patch(
+  "/pixelquest/rewards/:rewardId",
+  async (req, res): Promise<void> => {
+    const params = UpdateRewardParams.safeParse(req.params);
+    const parsed = UpdateRewardBody.safeParse(req.body);
+    if (!params.success || !parsed.success) {
+      res.status(400).json({
+        error: params.error?.message ?? parsed.error?.message ?? "Invalid input",
+      });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(rewardsTable)
+      .where(eq(rewardsTable.id, params.data.rewardId))
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Reward not found" });
+      return;
+    }
+    if (existing.claimedAt) {
+      res.status(409).json({ error: "Claimed rewards cannot be edited." });
+      return;
+    }
+
+    const ruleType = parsed.data.ruleType ?? (existing.ruleType as RewardRule);
+    const target = parsed.data.target ?? existing.target;
+    const habitId =
+      parsed.data.habitId === undefined ? existing.habitId : parsed.data.habitId;
+    const validationError = await rewardRuleError(ruleType, target, habitId);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+    const [row] = await db
+      .update(rewardsTable)
+      .set(parsed.data)
+      .where(and(eq(rewardsTable.id, existing.id), isNull(rewardsTable.claimedAt)))
+      .returning();
+    if (!row) {
+      res.status(409).json({ error: "Claimed rewards cannot be edited." });
+      return;
+    }
+    const [profile, completions] = await Promise.all([
+      getPlayerProfile(),
+      db
+        .select({
+          habitId: habitCompletionsTable.habitId,
+          date: habitCompletionsTable.date,
+        })
+        .from(habitCompletionsTable),
+    ]);
+    const datesByHabit = new Map<number, string[]>();
+    for (const completion of completions) {
+      const dates = datesByHabit.get(completion.habitId) ?? [];
+      dates.push(completion.date);
+      datesByHabit.set(completion.habitId, dates);
+    }
+    const [habit] = row.habitId
+      ? await db
+          .select({ title: habitsTable.title })
+          .from(habitsTable)
+          .where(eq(habitsTable.id, row.habitId))
+          .limit(1)
+      : [];
+    res.json(
+      UpdateRewardResponse.parse(
+        mapReward(
+          row,
+          rewardCurrentValue(row, profile, datesByHabit),
+          habit?.title ?? null,
+        ),
+      ),
+    );
+  },
+);
+
+router.delete(
+  "/pixelquest/rewards/:rewardId",
+  async (req, res): Promise<void> => {
+    const params = DeleteRewardParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [row] = await db
+      .delete(rewardsTable)
+      .where(
+        and(
+          eq(rewardsTable.id, params.data.rewardId),
+          isNull(rewardsTable.claimedAt),
+        ),
+      )
+      .returning({ id: rewardsTable.id });
+    if (!row) {
+      const [existing] = await db
+        .select({ id: rewardsTable.id })
+        .from(rewardsTable)
+        .where(eq(rewardsTable.id, params.data.rewardId))
+        .limit(1);
+      if (!existing) {
+        res.status(404).json({ error: "Reward not found" });
+        return;
+      }
+      res.status(409).json({ error: "Claimed rewards cannot be deleted." });
+      return;
+    }
+    res.sendStatus(204);
+  },
+);
+
+router.post(
+  "/pixelquest/rewards/:rewardId/claim",
+  async (req, res): Promise<void> => {
+    const params = ClaimRewardParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const outcome = await db.transaction(async (tx) => {
+      const [reward] = await tx
+        .select()
+        .from(rewardsTable)
+        .where(eq(rewardsTable.id, params.data.rewardId))
+        .limit(1)
+        .for("update");
+      if (!reward) return { kind: "not-found" as const };
+      if (reward.claimedAt) return { kind: "claimed" as const };
+
+      const [player] = await tx
+        .select({
+          xp: playerProfileTable.xp,
+          gold: playerProfileTable.gold,
+        })
+        .from(playerProfileTable)
+        .where(eq(playerProfileTable.id, 1))
+        .limit(1);
+      let currentValue = 0;
+      if (reward.ruleType === "gold") {
+        currentValue = player?.gold ?? 0;
+      } else if (reward.ruleType === "level") {
+        currentValue = levelForXp(player?.xp ?? 0).level;
+      } else if (reward.ruleType === "streak" && reward.habitId) {
+        const rows = await tx
+          .select({ date: habitCompletionsTable.date })
+          .from(habitCompletionsTable)
+          .where(eq(habitCompletionsTable.habitId, reward.habitId));
+        currentValue = currentStreak(rows.map((item) => item.date));
+      }
+      if (currentValue < reward.target) return { kind: "locked" as const };
+
+      if (reward.ruleType === "gold") {
+        const [balance] = await tx
+          .update(playerProfileTable)
+          .set({ gold: sql`${playerProfileTable.gold} - ${reward.target}` })
+          .where(
+            and(
+              eq(playerProfileTable.id, 1),
+              gte(playerProfileTable.gold, reward.target),
+            ),
+          )
+          .returning({ gold: playerProfileTable.gold });
+        if (!balance) return { kind: "locked" as const };
+      }
+      const [claimed] = await tx
+        .update(rewardsTable)
+        .set({ claimedAt: new Date() })
+        .where(
+          and(eq(rewardsTable.id, reward.id), isNull(rewardsTable.claimedAt)),
+        )
+        .returning();
+      if (!claimed) throw new Error("Reward was claimed concurrently.");
+      return { kind: "claimed" as const, reward: claimed };
+    });
+
+    if (outcome.kind === "not-found") {
+      res.status(404).json({ error: "Reward not found" });
+      return;
+    }
+    if (outcome.kind === "claimed") {
+      const claimedReward = "reward" in outcome ? outcome.reward : undefined;
+      if (claimedReward) {
+        const [habit] = claimedReward.habitId
+          ? await db
+              .select({ title: habitsTable.title })
+              .from(habitsTable)
+              .where(eq(habitsTable.id, claimedReward.habitId))
+              .limit(1)
+          : [];
+        res.json(
+          ClaimRewardResponse.parse(
+            mapReward(claimedReward, claimedReward.target, habit?.title ?? null),
+          ),
+        );
+        return;
+      }
+      res.status(409).json({ error: "This reward has already been claimed." });
+      return;
+    }
+    res.status(409).json({ error: "This reward is still locked." });
+  },
+);
 
 export default router;

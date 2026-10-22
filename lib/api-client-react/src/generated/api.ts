@@ -32,6 +32,9 @@ import type {
   HabitUpdate,
   HealthStatus,
   QuestTask,
+  Reward,
+  RewardInput,
+  RewardUpdate,
   TaskInput,
   TaskUpdate
 } from './api.schemas';
@@ -1216,4 +1219,406 @@ export function useGetAchievements<TData = Awaited<ReturnType<typeof getAchievem
 
 
 
+
+export const getGetRewardsUrl = () => {
+
+
+
+
+  return `/api/pixelquest/rewards`
+}
+
+/**
+ * @summary List reward shop items and their unlock progress
+ */
+export const getRewards = async ( options?: Parameters<typeof customFetch>[1]): Promise<Reward[]> => {
+
+  return customFetch<Reward[]>(getGetRewardsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRewardsQueryKey = () => {
+    return [
+    `/api/pixelquest/rewards`
+    ] as const;
+    }
+
+
+export const getGetRewardsQueryOptions = <TData = Awaited<ReturnType<typeof getRewards>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRewardsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRewards>>> = ({ signal }) => getRewards({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRewardsQueryResult = NonNullable<Awaited<ReturnType<typeof getRewards>>>
+export type GetRewardsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List reward shop items and their unlock progress
+ */
+
+export function useGetRewards<TData = Awaited<ReturnType<typeof getRewards>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRewardsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRewardUrl = () => {
+
+
+
+
+  return `/api/pixelquest/rewards`
+}
+
+/**
+ * @summary Add a real-life reward
+ */
+export const createReward = async (rewardInput: RewardInput, options?: Parameters<typeof customFetch>[1]): Promise<Reward> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Reward>(getCreateRewardUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(rewardInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRewardMutationKey = () => ['createReward'] as const;
+
+export const getCreateRewardMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReward>>, TError,CreateRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReward>>, TError,CreateRewardMutationVariables, TContext> => {
+
+const mutationKey = getCreateRewardMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReward>>, CreateRewardMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReward(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRewardMutationResult = NonNullable<Awaited<ReturnType<typeof createReward>>>
+    export type CreateRewardMutationBody = BodyType<RewardInput>
+    export type CreateRewardMutationError = ErrorType<void>
+    export type CreateRewardMutationVariables = {data: BodyType<RewardInput>}
+
+    /**
+ * @summary Add a real-life reward
+ */
+export const useCreateReward = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReward>>, TError,CreateRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReward>>,
+        TError,
+        CreateRewardMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateRewardMutationOptions(options));
+    }
+
+export const getUpdateRewardUrl = (rewardId: number,) => {
+
+
+
+
+  return `/api/pixelquest/rewards/${rewardId}`
+}
+
+/**
+ * @summary Edit an unclaimed reward
+ */
+export const updateReward = async (rewardId: number,
+    rewardUpdate: RewardUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Reward> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Reward>(getUpdateRewardUrl(rewardId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(rewardUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRewardMutationKey = () => ['updateReward'] as const;
+
+export const getUpdateRewardMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReward>>, TError,UpdateRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReward>>, TError,UpdateRewardMutationVariables, TContext> => {
+
+const mutationKey = getUpdateRewardMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReward>>, UpdateRewardMutationVariables> = (props) => {
+          const {rewardId,data} = props ?? {};
+
+          return  updateReward(rewardId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRewardMutationResult = NonNullable<Awaited<ReturnType<typeof updateReward>>>
+    export type UpdateRewardMutationBody = BodyType<RewardUpdate>
+    export type UpdateRewardMutationError = ErrorType<void>
+    export type UpdateRewardMutationVariables = {rewardId: number;data: BodyType<RewardUpdate>}
+
+    /**
+ * @summary Edit an unclaimed reward
+ */
+export const useUpdateReward = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReward>>, TError,UpdateRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReward>>,
+        TError,
+        UpdateRewardMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateRewardMutationOptions(options));
+    }
+
+export const getDeleteRewardUrl = (rewardId: number,) => {
+
+
+
+
+  return `/api/pixelquest/rewards/${rewardId}`
+}
+
+/**
+ * @summary Remove an unclaimed reward
+ */
+export const deleteReward = async (rewardId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteRewardUrl(rewardId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRewardMutationKey = () => ['deleteReward'] as const;
+
+export const getDeleteRewardMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReward>>, TError,DeleteRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReward>>, TError,DeleteRewardMutationVariables, TContext> => {
+
+const mutationKey = getDeleteRewardMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReward>>, DeleteRewardMutationVariables> = (props) => {
+          const {rewardId} = props ?? {};
+
+          return  deleteReward(rewardId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRewardMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReward>>>
+
+    export type DeleteRewardMutationError = ErrorType<void>
+    export type DeleteRewardMutationVariables = {rewardId: number}
+
+    /**
+ * @summary Remove an unclaimed reward
+ */
+export const useDeleteReward = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReward>>, TError,DeleteRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReward>>,
+        TError,
+        DeleteRewardMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteRewardMutationOptions(options));
+    }
+
+export const getClaimRewardUrl = (rewardId: number,) => {
+
+
+
+
+  return `/api/pixelquest/rewards/${rewardId}/claim`
+}
+
+/**
+ * @summary Claim an unlocked reward and archive it
+ */
+export const claimReward = async (rewardId: number, options?: Parameters<typeof customFetch>[1]): Promise<Reward> => {
+
+  return customFetch<Reward>(getClaimRewardUrl(rewardId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimRewardMutationKey = () => ['claimReward'] as const;
+
+export const getClaimRewardMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimReward>>, TError,ClaimRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimReward>>, TError,ClaimRewardMutationVariables, TContext> => {
+
+const mutationKey = getClaimRewardMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimReward>>, ClaimRewardMutationVariables> = (props) => {
+          const {rewardId} = props ?? {};
+
+          return  claimReward(rewardId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimRewardMutationResult = NonNullable<Awaited<ReturnType<typeof claimReward>>>
+
+    export type ClaimRewardMutationError = ErrorType<void>
+    export type ClaimRewardMutationVariables = {rewardId: number}
+
+    /**
+ * @summary Claim an unlocked reward and archive it
+ */
+export const useClaimReward = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimReward>>, TError,ClaimRewardMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimReward>>,
+        TError,
+        ClaimRewardMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClaimRewardMutationOptions(options));
+    }
 

@@ -152,6 +152,7 @@ export interface TaskUpdate {
 
 export interface PlayerProfile {
   xp: number;
+  gold: number;
   level: number;
   xpIntoLevel: number;
   xpToNextLevel: number;
@@ -197,6 +198,89 @@ export interface CompletionResult {
   profile: PlayerProfile;
   leveledUp: boolean;
   multiplier: number;
+}
+
+export type RewardRuleType = typeof RewardRuleType[keyof typeof RewardRuleType];
+
+
+export const RewardRuleType = {
+  streak: 'streak',
+  gold: 'gold',
+  level: 'level',
+} as const;
+
+export type RewardStatus = typeof RewardStatus[keyof typeof RewardStatus];
+
+
+export const RewardStatus = {
+  locked: 'locked',
+  ready: 'ready',
+  claimed: 'claimed',
+} as const;
+
+export interface Reward {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  ruleType: RewardRuleType;
+  target: number;
+  /** @nullable */
+  habitId: number | null;
+  /** @nullable */
+  habitTitle: string | null;
+  currentValue: number;
+  progressText: string;
+  status: RewardStatus;
+  /** @nullable */
+  claimedAt: string | null;
+  createdAt: string;
+}
+
+export interface RewardInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /** @maxLength 300 */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  category: string;
+  ruleType: RewardRuleType;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target: number;
+  /** @nullable */
+  habitId: number | null;
+}
+
+export interface RewardUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title?: string;
+  /** @maxLength 300 */
+  description?: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  category?: string;
+  ruleType?: RewardRuleType;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target?: number;
+  /** @nullable */
+  habitId?: number | null;
 }
 
 export type GetHabitsParams = {
