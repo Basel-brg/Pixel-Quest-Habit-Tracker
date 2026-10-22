@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: pixel-quest
+    description: Habit tracking, quests, and player progress
 paths:
   /healthz:
     get:
@@ -24,6 +26,266 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /pixelquest/dashboard:
+    get:
+      operationId: getPixelQuestDashboard
+      tags: [pixel-quest]
+      summary: Get player progress and dashboard stats
+      responses:
+        "200":
+          description: Player dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /pixelquest/habits:
+    get:
+      operationId: getHabits
+      tags: [pixel-quest]
+      summary: List habits and recent completion dates
+      parameters:
+        - name: archived
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Habit list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Habit"
+    post:
+      operationId: createHabit
+      tags: [pixel-quest]
+      summary: Create a habit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitInput"
+      responses:
+        "201":
+          description: Created habit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Habit"
+  /pixelquest/habits/{habitId}:
+    patch:
+      operationId: updateHabit
+      tags: [pixel-quest]
+      summary: Edit or archive a habit
+      parameters:
+        - name: habitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitUpdate"
+      responses:
+        "200":
+          description: Updated habit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Habit"
+        "404":
+          description: Habit not found
+  /pixelquest/habits/{habitId}/completions:
+    put:
+      operationId: completeHabit
+      tags: [pixel-quest]
+      summary: Mark a habit complete for a date
+      parameters:
+        - name: habitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionInput"
+      responses:
+        "200":
+          description: Completion saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionResult"
+        "404":
+          description: Habit not found
+    delete:
+      operationId: undoHabitCompletion
+      tags: [pixel-quest]
+      summary: Undo a habit completion
+      parameters:
+        - name: habitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitCompletionUndoInput"
+      responses:
+        "204":
+          description: Completion removed
+        "404":
+          description: Habit or completion not found
+  /pixelquest/tasks:
+    get:
+      operationId: getTasks
+      tags: [pixel-quest]
+      summary: List and filter quest tasks
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, all]
+        - name: difficulty
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuestTask"
+    post:
+      operationId: createTask
+      tags: [pixel-quest]
+      summary: Create a quest task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestTask"
+  /pixelquest/tasks/{taskId}:
+    patch:
+      operationId: updateTask
+      tags: [pixel-quest]
+      summary: Edit a quest task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestTask"
+        "404":
+          description: Task not found
+    delete:
+      operationId: deleteTask
+      tags: [pixel-quest]
+      summary: Delete a quest task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          description: Task not found
+  /pixelquest/tasks/{taskId}/completion:
+    put:
+      operationId: completeTask
+      tags: [pixel-quest]
+      summary: Complete a quest task and earn XP
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task completion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionResult"
+        "404":
+          description: Task not found
+    delete:
+      operationId: undoTaskCompletion
+      tags: [pixel-quest]
+      summary: Reopen a completed quest task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reopened task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestTask"
+        "404":
+          description: Task not found
+  /pixelquest/achievements:
+    get:
+      operationId: getAchievements
+      tags: [pixel-quest]
+      summary: Get achievement progress
+      responses:
+        "200":
+          description: Achievement list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Achievement"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +295,127 @@ components:
           type: string
       required:
         - status
+    Habit:
+      type: object
+      required: [id, title, category, frequency, days, archived, createdAt, completedDates]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        category: { type: string }
+        frequency: { type: string, enum: [daily, weekly] }
+        days:
+          type: array
+          items: { type: integer }
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        completedDates:
+          type: array
+          items: { type: string, format: date }
+    HabitInput:
+      type: object
+      required: [title, category, frequency, days]
+      properties:
+        title: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        frequency: { type: string, enum: [daily, weekly] }
+        days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+    HabitUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        frequency: { type: string, enum: [daily, weekly] }
+        days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+        archived: { type: boolean }
+    CompletionInput:
+      type: object
+      required: [date]
+      properties:
+        date: { type: string, format: date }
+    HabitCompletionUndoInput:
+      type: object
+      required: [date]
+      properties:
+        date: { type: string, format: date }
+    QuestTask:
+      type: object
+      required: [id, title, difficulty, category, priority, status, dueDate, createdAt, completedAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        category: { type: string }
+        priority: { type: boolean }
+        status: { type: string, enum: [active, completed] }
+        dueDate: { type: [string, "null"], format: date }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
+    TaskInput:
+      type: object
+      required: [title, difficulty, category, priority]
+      properties:
+        title: { type: string, minLength: 1 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        category: { type: string, minLength: 1 }
+        priority: { type: boolean }
+        dueDate: { type: [string, "null"], format: date }
+    TaskUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        category: { type: string, minLength: 1 }
+        priority: { type: boolean }
+        dueDate: { type: [string, "null"], format: date }
+    PlayerProfile:
+      type: object
+      required: [xp, level, xpIntoLevel, xpToNextLevel, streak, title]
+      properties:
+        xp: { type: integer }
+        level: { type: integer }
+        xpIntoLevel: { type: integer }
+        xpToNextLevel: { type: integer }
+        streak: { type: integer }
+        title: { type: string }
+    Achievement:
+      type: object
+      required: [id, name, description, unlocked]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        unlocked: { type: boolean }
+        unlockedAt: { type: [string, "null"], format: date-time }
+    Dashboard:
+      type: object
+      required: [profile, completedTasks, activeHabits, completionRate, totalCompletions, recentActivity]
+      properties:
+        profile: { $ref: "#/components/schemas/PlayerProfile" }
+        completedTasks: { type: integer }
+        activeHabits: { type: integer }
+        completionRate: { type: integer }
+        totalCompletions: { type: integer }
+        recentActivity:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+    Activity:
+      type: object
+      required: [id, label, kind, happenedAt]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        kind: { type: string, enum: [habit, task] }
+        happenedAt: { type: string, format: date-time }
+    CompletionResult:
+      type: object
+      required: [xpEarned, profile, leveledUp, multiplier]
+      properties:
+        xpEarned: { type: integer }
+        profile: { $ref: "#/components/schemas/PlayerProfile" }
+        leveledUp: { type: boolean }
+        multiplier: { type: number }
 

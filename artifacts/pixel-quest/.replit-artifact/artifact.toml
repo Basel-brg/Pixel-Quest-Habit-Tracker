@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Pixel Quest"
+description = "A retro RPG-inspired habit tracker and to-do app where daily routines and quests earn XP, build streaks, unlock levels, and record progress."
+version = "1.0.0"
+id = "artifacts/pixel-quest"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23366
+
+[services.development]
+run = "pnpm --filter @workspace/pixel-quest run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pixel-quest", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/pixel-quest/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23366"
+BASE_PATH = "/"
