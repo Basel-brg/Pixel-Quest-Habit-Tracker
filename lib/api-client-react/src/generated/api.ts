@@ -37,6 +37,8 @@ import type {
   Reward,
   RewardInput,
   RewardUpdate,
+  RpgActionInput,
+  RpgSnapshot,
   TaskInput,
   TaskUpdate
 } from './api.schemas';
@@ -67,6 +69,171 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetRpgStateUrl = () => {
+
+
+
+
+  return `/api/pixelquest/rpg`
+}
+
+/**
+ * @summary Authoritative account-scoped RPG journal, settled in the player's timezone
+ */
+export const getRpgState = async ( options?: Parameters<typeof customFetch>[1]): Promise<RpgSnapshot> => {
+
+  return customFetch<RpgSnapshot>(getGetRpgStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRpgStateQueryKey = () => {
+    return [
+    `/api/pixelquest/rpg`
+    ] as const;
+    }
+
+
+export const getGetRpgStateQueryOptions = <TData = Awaited<ReturnType<typeof getRpgState>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRpgState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRpgStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRpgState>>> = ({ signal }) => getRpgState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRpgState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRpgStateQueryResult = NonNullable<Awaited<ReturnType<typeof getRpgState>>>
+export type GetRpgStateQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Authoritative account-scoped RPG journal, settled in the player's timezone
+ */
+
+export function useGetRpgState<TData = Awaited<ReturnType<typeof getRpgState>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRpgState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRpgStateQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPerformRpgActionUrl = () => {
+
+
+
+
+  return `/api/pixelquest/rpg/actions`
+}
+
+/**
+ * @summary Transactional, idempotent RPG action
+ */
+export const performRpgAction = async (rpgActionInput: RpgActionInput, options?: Parameters<typeof customFetch>[1]): Promise<RpgSnapshot> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RpgSnapshot>(getPerformRpgActionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(rpgActionInput)
+  }
+);}
+
+
+
+
+
+export const getPerformRpgActionMutationKey = () => ['performRpgAction'] as const;
+
+export const getPerformRpgActionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof performRpgAction>>, TError,PerformRpgActionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof performRpgAction>>, TError,PerformRpgActionMutationVariables, TContext> => {
+
+const mutationKey = getPerformRpgActionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof performRpgAction>>, PerformRpgActionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  performRpgAction(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PerformRpgActionMutationResult = NonNullable<Awaited<ReturnType<typeof performRpgAction>>>
+    export type PerformRpgActionMutationBody = BodyType<RpgActionInput>
+    export type PerformRpgActionMutationError = ErrorType<void>
+    export type PerformRpgActionMutationVariables = {data: BodyType<RpgActionInput>}
+
+    /**
+ * @summary Transactional, idempotent RPG action
+ */
+export const usePerformRpgAction = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof performRpgAction>>, TError,PerformRpgActionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof performRpgAction>>,
+        TError,
+        PerformRpgActionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPerformRpgActionMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

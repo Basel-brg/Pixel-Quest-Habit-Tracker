@@ -13,6 +13,44 @@ tags:
   - name: pixel-quest
     description: Habit tracking, quests, and player progress
 paths:
+  /pixelquest/rpg:
+    get:
+      operationId: getRpgState
+      tags: [pixel-quest]
+      summary: Authoritative account-scoped RPG journal, settled in the player's timezone
+      responses:
+        "200":
+          description: Current RPG state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RpgSnapshot"
+  /pixelquest/rpg/actions:
+    post:
+      operationId: performRpgAction
+      tags: [pixel-quest]
+      summary: Transactional, idempotent RPG action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RpgActionInput"
+      responses:
+        "200":
+          description: Updated state; repeated request IDs never repeat effects
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RpgSnapshot"
+        "400":
+          description: Invalid input
+        "401":
+          description: Sign in required
+        "404":
+          description: Owned resource not found
+        "409":
+          description: Action not currently eligible
   /healthz:
     get:
       operationId: healthCheck
@@ -421,6 +459,214 @@ paths:
           description: Reward is locked or already claimed
 components:
   schemas:
+    RpgCondition:
+      type: object
+      required: [type, target]
+      properties:
+        type: { type: string, enum: [level, streak, gold] }
+        target: { type: integer, minimum: 1, maximum: 1000000 }
+        habitId: { type: [integer, "null"] }
+        current: { type: number }
+        met: { type: boolean }
+        label: { type: string }
+    RpgDay:
+      type: object
+      required: [date, status, value, target]
+      properties:
+        date: { type: string }
+        status: { type: string, enum: [complete, partial, missed, off, protected, upcoming] }
+        value: { type: number }
+        target: { type: number }
+    RpgHabit:
+      allOf:
+        - $ref: "#/components/schemas/Habit"
+        - type: object
+          required: [mandatory, target, unit, stat, progress, streak, bestStreak, scheduledToday, history]
+          properties:
+            mandatory: { type: boolean }
+            target: { type: number }
+            unit: { type: string }
+            stat: { type: string, enum: [STR, INT, WIS] }
+            progress: { type: number }
+            streak: { type: integer }
+            bestStreak: { type: integer }
+            scheduledToday: { type: boolean }
+            history: { type: array, items: { $ref: "#/components/schemas/RpgDay" } }
+    RpgQuest:
+      allOf:
+        - $ref: "#/components/schemas/QuestTask"
+        - type: object
+          required: [tags, type, xpReward, goldReward]
+          properties:
+            tags: { type: array, items: { type: string } }
+            type: { type: string, enum: [single, weekly] }
+            xpReward: { type: integer }
+            goldReward: { type: integer }
+    RpgReward:
+      allOf:
+        - $ref: "#/components/schemas/Reward"
+        - type: object
+          required: [conditions, claimCost, savingsTarget, savedAmount, savingsPerQuest]
+          properties:
+            conditions: { type: array, items: { $ref: "#/components/schemas/RpgCondition" } }
+            claimCost: { type: integer }
+            savingsTarget: { type: number }
+            savedAmount: { type: number }
+            savingsPerQuest: { type: number }
+    RpgCatalogItem:
+      type: object
+      required: [id, name, description, price, requiredLevel, consumable]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        price: { type: integer }
+        requiredLevel: { type: integer }
+        consumable: { type: boolean }
+    RpgInventoryItem:
+      type: object
+      required: [id, catalogId, name, description, quantity, equipped, requiredLevel]
+      properties:
+        id: { type: string }
+        catalogId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        quantity: { type: integer }
+        equipped: { type: boolean }
+        requiredLevel: { type: integer }
+    RpgBoss:
+      type: object
+      required: [id, name, hp, maxHp, taskIds, defeated, bonusGold, loot]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hp: { type: integer }
+        maxHp: { type: integer }
+        taskIds: { type: array, items: { type: integer } }
+        defeated: { type: boolean }
+        bonusGold: { type: integer }
+        loot: { type: string }
+    RpgWeek:
+      type: object
+      required: [start, end, completionRate, completed, opportunities, xp, gold, habits]
+      properties:
+        start: { type: string }
+        end: { type: string }
+        completionRate: { type: number }
+        completed: { type: integer }
+        opportunities: { type: integer }
+        xp: { type: integer }
+        gold: { type: integer }
+        habits:
+          type: array
+          items:
+            $ref: "#/components/schemas/RpgHabitReport"
+    RpgHabitReport:
+      type: object
+      required: [id, title, completed, opportunities, rate]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        completed: { type: integer }
+        opportunities: { type: integer }
+        rate: { type: number }
+    RpgChest:
+      type: object
+      required: [enabled, eligible, opened, outcome, rewards, history]
+      properties:
+        enabled: { type: boolean }
+        eligible: { type: boolean }
+        opened: { type: boolean }
+        outcome: { type: [string, "null"] }
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/RpgChestEntry"
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/RpgChestPrize"
+    RpgChestPrize:
+      type: object
+      required: [label, probability]
+      properties:
+        label: { type: string }
+        probability: { type: number }
+    RpgChestEntry:
+      type: object
+      required: [date, outcome]
+      properties:
+        date: { type: string }
+        outcome: { type: string }
+    RpgSnapshot:
+      type: object
+      required: [today, timezone, hp, faintedUntil, campingToday, stateSince, profile, skills, habits, quests, rewards, inventory, merchant, bosses, currentWeek, previousWeek, chest, rules, message, effect]
+      properties:
+        today: { type: string }
+        timezone: { type: string }
+        hp: { type: integer }
+        faintedUntil: { type: [string, "null"] }
+        campingToday: { type: boolean }
+        stateSince: { type: string }
+        profile: { $ref: "#/components/schemas/PlayerProfileDetails" }
+        skills: { $ref: "#/components/schemas/RpgSkills" }
+        habits: { type: array, items: { $ref: "#/components/schemas/RpgHabit" } }
+        quests: { type: array, items: { $ref: "#/components/schemas/RpgQuest" } }
+        rewards: { type: array, items: { $ref: "#/components/schemas/RpgReward" } }
+        inventory: { type: array, items: { $ref: "#/components/schemas/RpgInventoryItem" } }
+        merchant: { type: array, items: { $ref: "#/components/schemas/RpgCatalogItem" } }
+        bosses: { type: array, items: { $ref: "#/components/schemas/RpgBoss" } }
+        currentWeek: { $ref: "#/components/schemas/RpgWeek" }
+        previousWeek: { $ref: "#/components/schemas/RpgWeek" }
+        chest: { $ref: "#/components/schemas/RpgChest" }
+        rules: { type: array, items: { type: string } }
+        message: { type: string }
+        effect: { type: string, enum: [none, complete, boss, reward] }
+    RpgSkills:
+      type: object
+      required: [STR, INT, WIS]
+      properties:
+        STR: { type: integer }
+        INT: { type: integer }
+        WIS: { type: integer }
+    RpgActionInput:
+      type: object
+      required: [requestId, action]
+      properties:
+        requestId: { type: string, minLength: 8, maxLength: 100 }
+        action:
+          type: string
+          enum: [saveHabit, deleteHabit, progressHabit, saveQuest, deleteQuest, completeQuest, saveReward, deleteReward, claimReward, buyItem, updateItem, deleteItem, equipItem, consumeItem, settings, drawChest, savings, profile]
+        id: { type: integer, minimum: 1 }
+        itemId: { type: string, maxLength: 100 }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 300 }
+        category: { type: string, maxLength: 40 }
+        frequency: { type: string, enum: [daily, weekly] }
+        days: { type: array, maxItems: 7, items: { type: integer, minimum: 0, maximum: 6 } }
+        archived: { type: boolean }
+        mandatory: { type: boolean }
+        target: { type: number, minimum: 1, maximum: 1000000 }
+        unit: { type: string, maxLength: 30 }
+        stat: { type: string, enum: [STR, INT, WIS] }
+        value: { type: number, minimum: 0, maximum: 1000000 }
+        date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        priority: { type: boolean }
+        dueDate: { type: [string, "null"] }
+        tags: { type: array, maxItems: 10, items: { type: string, maxLength: 30 } }
+        type: { type: string, enum: [single, weekly] }
+        completed: { type: boolean }
+        conditions: { type: array, minItems: 1, maxItems: 3, items: { $ref: "#/components/schemas/RpgCondition" } }
+        claimCost: { type: integer, minimum: 0, maximum: 1000000 }
+        savingsTarget: { type: number, minimum: 0, maximum: 100000000 }
+        savedAmount: { type: number, minimum: 0, maximum: 100000000 }
+        savingsPerQuest: { type: number, minimum: 0, maximum: 100000 }
+        timezone: { type: string, maxLength: 100 }
+        chestEnabled: { type: boolean }
+        equipped: { type: boolean }
+        username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
+        avatarId: { $ref: "#/components/schemas/AvatarId" }
     HealthStatus:
       type: object
       properties:

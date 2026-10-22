@@ -5,9 +5,56 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
+export type RpgConditionType = typeof RpgConditionType[keyof typeof RpgConditionType];
+
+
+export const RpgConditionType = {
+  level: 'level',
+  streak: 'streak',
+  gold: 'gold',
+} as const;
+
+export interface RpgCondition {
+  type: RpgConditionType;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target: number;
+  /** @nullable */
+  habitId?: number | null;
+  current?: number;
+  met?: boolean;
+  label?: string;
 }
+
+export type RpgDayStatus = typeof RpgDayStatus[keyof typeof RpgDayStatus];
+
+
+export const RpgDayStatus = {
+  complete: 'complete',
+  partial: 'partial',
+  missed: 'missed',
+  off: 'off',
+  protected: 'protected',
+  upcoming: 'upcoming',
+} as const;
+
+export interface RpgDay {
+  date: string;
+  status: RpgDayStatus;
+  value: number;
+  target: number;
+}
+
+export type RpgHabitStat = typeof RpgHabitStat[keyof typeof RpgHabitStat];
+
+
+export const RpgHabitStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
 
 export type HabitFrequency = typeof HabitFrequency[keyof typeof HabitFrequency];
 
@@ -26,6 +73,415 @@ export interface Habit {
   archived: boolean;
   createdAt: string;
   completedDates: string[];
+}
+
+export type RpgHabit = Habit & {
+  mandatory: boolean;
+  target: number;
+  unit: string;
+  stat: RpgHabitStat;
+  progress: number;
+  streak: number;
+  bestStreak: number;
+  scheduledToday: boolean;
+  history: RpgDay[];
+};
+
+export type RpgQuestType = typeof RpgQuestType[keyof typeof RpgQuestType];
+
+
+export const RpgQuestType = {
+  single: 'single',
+  weekly: 'weekly',
+} as const;
+
+export type QuestTaskDifficulty = typeof QuestTaskDifficulty[keyof typeof QuestTaskDifficulty];
+
+
+export const QuestTaskDifficulty = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+} as const;
+
+export type QuestTaskStatus = typeof QuestTaskStatus[keyof typeof QuestTaskStatus];
+
+
+export const QuestTaskStatus = {
+  active: 'active',
+  completed: 'completed',
+} as const;
+
+export interface QuestTask {
+  id: number;
+  title: string;
+  difficulty: QuestTaskDifficulty;
+  category: string;
+  priority: boolean;
+  status: QuestTaskStatus;
+  /** @nullable */
+  dueDate: string | null;
+  createdAt: string;
+  /** @nullable */
+  completedAt: string | null;
+}
+
+export type RpgQuest = QuestTask & {
+  tags: string[];
+  type: RpgQuestType;
+  xpReward: number;
+  goldReward: number;
+};
+
+export type RewardRuleType = typeof RewardRuleType[keyof typeof RewardRuleType];
+
+
+export const RewardRuleType = {
+  streak: 'streak',
+  gold: 'gold',
+  level: 'level',
+} as const;
+
+export type RewardStatus = typeof RewardStatus[keyof typeof RewardStatus];
+
+
+export const RewardStatus = {
+  locked: 'locked',
+  ready: 'ready',
+  claimed: 'claimed',
+} as const;
+
+export interface Reward {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  ruleType: RewardRuleType;
+  target: number;
+  /** @nullable */
+  habitId: number | null;
+  /** @nullable */
+  habitTitle: string | null;
+  currentValue: number;
+  progressText: string;
+  status: RewardStatus;
+  /** @nullable */
+  claimedAt: string | null;
+  createdAt: string;
+}
+
+export type RpgReward = Reward & {
+  conditions: RpgCondition[];
+  claimCost: number;
+  savingsTarget: number;
+  savedAmount: number;
+  savingsPerQuest: number;
+};
+
+export interface RpgCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  requiredLevel: number;
+  consumable: boolean;
+}
+
+export interface RpgInventoryItem {
+  id: string;
+  catalogId: string;
+  name: string;
+  description: string;
+  quantity: number;
+  equipped: boolean;
+  requiredLevel: number;
+}
+
+export interface RpgBoss {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  taskIds: number[];
+  defeated: boolean;
+  bonusGold: number;
+  loot: string;
+}
+
+export interface RpgHabitReport {
+  id: number;
+  title: string;
+  completed: number;
+  opportunities: number;
+  rate: number;
+}
+
+export interface RpgWeek {
+  start: string;
+  end: string;
+  completionRate: number;
+  completed: number;
+  opportunities: number;
+  xp: number;
+  gold: number;
+  habits: RpgHabitReport[];
+}
+
+export interface RpgChestEntry {
+  date: string;
+  outcome: string;
+}
+
+export interface RpgChestPrize {
+  label: string;
+  probability: number;
+}
+
+export interface RpgChest {
+  enabled: boolean;
+  eligible: boolean;
+  opened: boolean;
+  /** @nullable */
+  outcome: string | null;
+  history: RpgChestEntry[];
+  rewards: RpgChestPrize[];
+}
+
+export type RpgSnapshotEffect = typeof RpgSnapshotEffect[keyof typeof RpgSnapshotEffect];
+
+
+export const RpgSnapshotEffect = {
+  none: 'none',
+  complete: 'complete',
+  boss: 'boss',
+  reward: 'reward',
+} as const;
+
+export type AvatarId = typeof AvatarId[keyof typeof AvatarId];
+
+
+export const AvatarId = {
+  novice: 'novice',
+  squire: 'squire',
+  knight: 'knight',
+  paladin: 'paladin',
+} as const;
+
+export interface HabitStreakSummary {
+  habitId: number;
+  habitTitle: string;
+  currentStreak: number;
+  highestStreak: number;
+}
+
+export interface AvatarOption {
+  id: AvatarId;
+  name: string;
+  role: string;
+  description: string;
+  requiredLevel: number;
+  unlocked: boolean;
+}
+
+export interface PlayerMilestone {
+  id: string;
+  title: string;
+  description: string;
+  achievedAt: string;
+}
+
+export interface PlayerProfileDetails {
+  username: string;
+  avatarId: AvatarId;
+  level: number;
+  xp: number;
+  gold: number;
+  lifetimeTasksVanquished: number;
+  highestHabitStreak: number;
+  habitStreaks: HabitStreakSummary[];
+  avatars: AvatarOption[];
+  milestones: PlayerMilestone[];
+}
+
+export interface RpgSkills {
+  STR: number;
+  INT: number;
+  WIS: number;
+}
+
+export interface RpgSnapshot {
+  today: string;
+  timezone: string;
+  hp: number;
+  /** @nullable */
+  faintedUntil: string | null;
+  campingToday: boolean;
+  stateSince: string;
+  profile: PlayerProfileDetails;
+  skills: RpgSkills;
+  habits: RpgHabit[];
+  quests: RpgQuest[];
+  rewards: RpgReward[];
+  inventory: RpgInventoryItem[];
+  merchant: RpgCatalogItem[];
+  bosses: RpgBoss[];
+  currentWeek: RpgWeek;
+  previousWeek: RpgWeek;
+  chest: RpgChest;
+  rules: string[];
+  message: string;
+  effect: RpgSnapshotEffect;
+}
+
+export type RpgActionInputAction = typeof RpgActionInputAction[keyof typeof RpgActionInputAction];
+
+
+export const RpgActionInputAction = {
+  saveHabit: 'saveHabit',
+  deleteHabit: 'deleteHabit',
+  progressHabit: 'progressHabit',
+  saveQuest: 'saveQuest',
+  deleteQuest: 'deleteQuest',
+  completeQuest: 'completeQuest',
+  saveReward: 'saveReward',
+  deleteReward: 'deleteReward',
+  claimReward: 'claimReward',
+  buyItem: 'buyItem',
+  updateItem: 'updateItem',
+  deleteItem: 'deleteItem',
+  equipItem: 'equipItem',
+  consumeItem: 'consumeItem',
+  settings: 'settings',
+  drawChest: 'drawChest',
+  savings: 'savings',
+  profile: 'profile',
+} as const;
+
+export type RpgActionInputFrequency = typeof RpgActionInputFrequency[keyof typeof RpgActionInputFrequency];
+
+
+export const RpgActionInputFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+} as const;
+
+export type RpgActionInputStat = typeof RpgActionInputStat[keyof typeof RpgActionInputStat];
+
+
+export const RpgActionInputStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
+export type RpgActionInputDifficulty = typeof RpgActionInputDifficulty[keyof typeof RpgActionInputDifficulty];
+
+
+export const RpgActionInputDifficulty = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+} as const;
+
+export type RpgActionInputType = typeof RpgActionInputType[keyof typeof RpgActionInputType];
+
+
+export const RpgActionInputType = {
+  single: 'single',
+  weekly: 'weekly',
+} as const;
+
+export interface RpgActionInput {
+  /**
+     * @minLength 8
+     * @maxLength 100
+     */
+  requestId: string;
+  action: RpgActionInputAction;
+  /** @minimum 1 */
+  id?: number;
+  /** @maxLength 100 */
+  itemId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title?: string;
+  /** @maxLength 300 */
+  description?: string;
+  /** @maxLength 40 */
+  category?: string;
+  frequency?: RpgActionInputFrequency;
+  /**
+     * @maxItems 7
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  days?: number[];
+  archived?: boolean;
+  mandatory?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target?: number;
+  /** @maxLength 30 */
+  unit?: string;
+  stat?: RpgActionInputStat;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  value?: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  date?: string;
+  difficulty?: RpgActionInputDifficulty;
+  priority?: boolean;
+  /** @nullable */
+  dueDate?: string | null;
+  /**
+     * @maxItems 10
+     * @items.maxLength 30
+     */
+  tags?: string[];
+  type?: RpgActionInputType;
+  completed?: boolean;
+  /**
+     * @minItems 1
+     * @maxItems 3
+     */
+  conditions?: RpgCondition[];
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  claimCost?: number;
+  /**
+     * @minimum 0
+     * @maximum 100000000
+     */
+  savingsTarget?: number;
+  /**
+     * @minimum 0
+     * @maximum 100000000
+     */
+  savedAmount?: number;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  savingsPerQuest?: number;
+  /** @maxLength 100 */
+  timezone?: string;
+  chestEnabled?: boolean;
+  equipped?: boolean;
+  /** @pattern ^[A-Za-z0-9_]{3,20}$ */
+  username?: string;
+  avatarId?: AvatarId;
+}
+
+export interface HealthStatus {
+  status: string;
 }
 
 export type HabitInputFrequency = typeof HabitInputFrequency[keyof typeof HabitInputFrequency];
@@ -79,37 +535,6 @@ export interface HabitCompletionUndoInput {
   date: string;
 }
 
-export type QuestTaskDifficulty = typeof QuestTaskDifficulty[keyof typeof QuestTaskDifficulty];
-
-
-export const QuestTaskDifficulty = {
-  easy: 'easy',
-  medium: 'medium',
-  hard: 'hard',
-} as const;
-
-export type QuestTaskStatus = typeof QuestTaskStatus[keyof typeof QuestTaskStatus];
-
-
-export const QuestTaskStatus = {
-  active: 'active',
-  completed: 'completed',
-} as const;
-
-export interface QuestTask {
-  id: number;
-  title: string;
-  difficulty: QuestTaskDifficulty;
-  category: string;
-  priority: boolean;
-  status: QuestTaskStatus;
-  /** @nullable */
-  dueDate: string | null;
-  createdAt: string;
-  /** @nullable */
-  completedAt: string | null;
-}
-
 export type TaskInputDifficulty = typeof TaskInputDifficulty[keyof typeof TaskInputDifficulty];
 
 
@@ -160,52 +585,6 @@ export interface PlayerProfile {
   title: string;
 }
 
-export type AvatarId = typeof AvatarId[keyof typeof AvatarId];
-
-
-export const AvatarId = {
-  novice: 'novice',
-  squire: 'squire',
-  knight: 'knight',
-  paladin: 'paladin',
-} as const;
-
-export interface AvatarOption {
-  id: AvatarId;
-  name: string;
-  role: string;
-  description: string;
-  requiredLevel: number;
-  unlocked: boolean;
-}
-
-export interface HabitStreakSummary {
-  habitId: number;
-  habitTitle: string;
-  currentStreak: number;
-  highestStreak: number;
-}
-
-export interface PlayerMilestone {
-  id: string;
-  title: string;
-  description: string;
-  achievedAt: string;
-}
-
-export interface PlayerProfileDetails {
-  username: string;
-  avatarId: AvatarId;
-  level: number;
-  xp: number;
-  gold: number;
-  lifetimeTasksVanquished: number;
-  highestHabitStreak: number;
-  habitStreaks: HabitStreakSummary[];
-  avatars: AvatarOption[];
-  milestones: PlayerMilestone[];
-}
-
 export interface PlayerProfileUpdate {
   /**
      * @minLength 3
@@ -254,43 +633,6 @@ export interface CompletionResult {
   profile: PlayerProfile;
   leveledUp: boolean;
   multiplier: number;
-}
-
-export type RewardRuleType = typeof RewardRuleType[keyof typeof RewardRuleType];
-
-
-export const RewardRuleType = {
-  streak: 'streak',
-  gold: 'gold',
-  level: 'level',
-} as const;
-
-export type RewardStatus = typeof RewardStatus[keyof typeof RewardStatus];
-
-
-export const RewardStatus = {
-  locked: 'locked',
-  ready: 'ready',
-  claimed: 'claimed',
-} as const;
-
-export interface Reward {
-  id: number;
-  title: string;
-  description: string;
-  category: string;
-  ruleType: RewardRuleType;
-  target: number;
-  /** @nullable */
-  habitId: number | null;
-  /** @nullable */
-  habitTitle: string | null;
-  currentValue: number;
-  progressText: string;
-  status: RewardStatus;
-  /** @nullable */
-  claimedAt: string | null;
-  createdAt: string;
 }
 
 export interface RewardInput {

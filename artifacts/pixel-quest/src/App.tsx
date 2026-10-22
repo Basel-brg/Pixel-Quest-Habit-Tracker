@@ -1,19 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { ClerkLoading, ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
+import { ClerkLoading, ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { dark } from '@clerk/themes';
 import { ui } from '@clerk/ui';
-import { Activity, Archive, ArrowUpRight, CalendarDays, Check, CheckCircle2, ChevronRight, Circle, Clock3, Flame, Flag, Gamepad2, Gift, LogOut, UserRound, History, Medal, Plus, RotateCcw, Shield, Sparkles, Swords, Volume2, VolumeX, X } from 'lucide-react';
-import type { Habit, QuestTask, TaskInput, HabitInput } from '@workspace/api-client-react';
-import {
-  getGetAchievementsQueryKey, getGetHabitsQueryKey, getGetPixelQuestDashboardQueryKey, getGetTasksQueryKey,
-  getGetRewardsQueryKey, getGetPixelQuestProfileQueryKey,
-  useCompleteHabit, useCompleteTask, useCreateHabit, useCreateTask, useDeleteTask, useGetAchievements,
-  useGetHabits, useGetPixelQuestDashboard, useGetTasks, useUndoHabitCompletion, useUndoTaskCompletion,
-  useUpdateHabit, useUpdateTask,
-} from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -21,7 +12,14 @@ import NotFound from '@/pages/not-found';
 import RewardsPage from '@/pages/rewards';
 import ProfilePage from '@/pages/profile';
 import Landing from '@/pages/landing';
-import { dateKey } from '@/lib/date-key';
+import { Shell } from '@/components/shell';
+import { RpgProvider } from '@/lib/rpg-context';
+import { RemindersProvider, clearReminderState } from '@/lib/reminders';
+import CampPage from '@/pages/camp';
+import HabitsPage from '@/pages/habits';
+import QuestsPage from '@/pages/quests';
+import InventoryPage from '@/pages/inventory';
+import JournalPage from '@/pages/journal';
 
 const queryClient = new QueryClient();
 const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
@@ -49,183 +47,23 @@ function SignInPage() { return <div className="scanlines flex min-h-[100dvh] ite
 function SignUpPage() { return <div className="scanlines flex min-h-[100dvh] items-center justify-center px-4"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`}/></div>; }
 function CacheInvalidator() {
   const { addListener } = useClerk(); const qc = useQueryClient(); const prev = useRef<string | null | undefined>(undefined);
-  useEffect(() => addListener(({ user }) => { const id = user?.id ?? null; if (prev.current !== undefined && prev.current !== id) { qc.clear(); sessionStorage.removeItem('pixelquest-reward-statuses'); } prev.current = id; }), [addListener, qc]);
+  useEffect(() => addListener(({ user }) => { const id = user?.id ?? null; if (prev.current !== undefined && prev.current !== id) { qc.clear(); sessionStorage.removeItem('pixelquest-reward-statuses'); clearReminderState(); } prev.current = id; }), [addListener, qc]);
   return null;
 }
 function HomeRoute() { return <><ClerkLoading><Landing/></ClerkLoading><Show when="signed-in"><Redirect to="/camp"/></Show><Show when="signed-out"><Landing/></Show></>; }
+function AccountScope({ children }: { children: ReactNode }) {
+  const { user } = useUser();
+  // Reset forms, feedback, reminders and requests as well as server cache on account changes.
+  return <RpgProvider key={user?.id ?? 'signed-out'}><RemindersProvider>{children}</RemindersProvider></RpgProvider>;
+}
 function Protected({ component: C }: { component: () => ReactNode }) { return <><ClerkLoading><div className="grid min-h-screen place-items-center font-mono text-sm text-[#73e6df]">Loading your save...</div></ClerkLoading><Show when="signed-in"><Shell><C/></Shell></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
-const today = () => new Date().toISOString().slice(0, 10);
-const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
-const dateLabel = (value: string) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-const invalidateAll = (qc: ReturnType<typeof useQueryClient>) => {
-  qc.invalidateQueries({ queryKey: getGetRewardsQueryKey() });
-  qc.invalidateQueries({ queryKey: getGetPixelQuestProfileQueryKey() });
-  qc.invalidateQueries({ queryKey: getGetPixelQuestDashboardQueryKey() });
-  qc.invalidateQueries({ queryKey: getGetHabitsQueryKey() });
-  qc.invalidateQueries({ queryKey: getGetTasksQueryKey() });
-  qc.invalidateQueries({ queryKey: getGetAchievementsQueryKey() });
-};
-function useChime() {
-  const [muted, setMuted] = useState(() => localStorage.getItem('pixelquest-muted') === 'true');
-  const toggle = () => setMuted((current) => { localStorage.setItem('pixelquest-muted', String(!current)); return !current; });
-  const chime = () => {
-    if (muted || localStorage.getItem('pixelquest-muted') === 'true') return;
-    try {
-      const AudioCtx = window.AudioContext;
-      const context = new AudioCtx();
-      [660, 880].forEach((frequency, index) => {
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.type = 'square';
-        oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.035, context.currentTime + index * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + index * 0.08 + 0.12);
-        oscillator.connect(gain); gain.connect(context.destination);
-        oscillator.start(context.currentTime + index * 0.08); oscillator.stop(context.currentTime + index * 0.08 + 0.13);
-      });
-      window.setTimeout(() => void context.close(), 450);
-    } catch { /* Audio is an optional reward, never a blocker. */ }
-  };
-  return { muted, toggle, chime };
-}
-function Button({ children, onClick, variant = 'gold', className = '', disabled = false, testId }: {children: ReactNode; onClick?: () => void; variant?: 'gold'|'quiet'|'cyan'|'danger'; className?: string; disabled?: boolean; testId: string}) {
-  const colors = { gold: 'bg-[#f5ca62] text-[#252138] hover:bg-[#ffda7c]', quiet: 'bg-[#2a273b] text-[#ded8ed] border border-[#514967] hover:bg-[#373148]', cyan: 'bg-[#73e6df] text-[#19252b] hover:bg-[#9af3ed]', danger: 'bg-[#5a303b] text-[#ffb8aa] border border-[#854757] hover:bg-[#6e3847]' };
-  return <button type={onClick?'button':'submit'} data-testid={testId} disabled={disabled} onClick={onClick} className={cx('pixel-button inline-flex items-center justify-center gap-2 border-2 border-black/20 px-4 py-2.5 text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed', colors[variant], className)}>{children}</button>;
-}
-function Panel({ children, className = '' }: {children: ReactNode; className?: string}) {
-  return <section className={cx('pixel-border bg-[#211f33]/95 p-5 md:p-6', className)}>{children}</section>;
-}
-function PixelHeading({ eyebrow, children, action }: {eyebrow?: string; children: ReactNode; action?: ReactNode}) {
-  return <div className="mb-5 flex items-end justify-between gap-3"><div>{eyebrow && <p className="mb-2 font-mono text-[10px] uppercase tracking-[.18em] text-[#8f89a5]">{eyebrow}</p>}<h2 className="pixel-title text-[13px] text-[#f3e9cf] md:text-[15px]">{children}</h2></div>{action}</div>;
-}
-function Shell({ children }: {children: ReactNode}) {
-  const [path] = useLocation();
-  const audio = useChime(); const { signOut } = useClerk();
-  const nav = [{ href: '/camp', label: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', icon: Activity }, { href: '/quests', label: 'Quest board', icon: Swords }, { href: '/rewards', label: 'Reward shop', icon: Gift }, { href: '/profile', label: 'Profile', icon: UserRound }];
-  return <div className="scanlines min-h-[100dvh] text-[#eee8da]">
-    <div className="mx-auto flex min-h-[100dvh] max-w-[1440px]">
-      <aside className="hidden w-[248px] shrink-0 border-r border-[#39354e] bg-[#171625]/75 px-5 py-7 md:flex md:flex-col">
-        <Link href="/camp" className="mb-12 flex items-center gap-3 text-inherit no-underline" data-testid="link-brand"><span className="grid h-11 w-11 place-items-center border-2 border-[#f5ca62] bg-[#302b46] text-[#f5ca62] shadow-[3px_3px_0_#0e0d18]"><Gamepad2 size={23}/></span><span><b className="pixel-title block text-[10px] text-[#f5ca62]">PIXEL QUEST</b><small className="mt-2 block text-xs text-[#8f89a5]">your life, leveled up</small></span></Link>
-        <p className="mb-3 px-2 font-mono text-[9px] uppercase tracking-[.2em] text-[#77718d]">Your journal</p>
-        <nav className="space-y-2">{nav.map(({href,label,icon:Icon}) => <Link href={href} key={href} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex items-center gap-3 border-2 px-3 py-3 text-sm font-semibold no-underline transition-colors', path === href ? 'border-[#f5ca62]/55 bg-[#2c293d] text-[#f5ca62]' : 'border-transparent text-[#aca6bd] hover:bg-[#242236] hover:text-[#eee8da]')}><Icon size={17}/>{label}{path===href&&<ChevronRight size={15} className="ml-auto"/>}</Link>)}</nav>
-        <div className="mt-auto border-t border-[#39354e] pt-5">
-          <div className="mb-4 flex items-center gap-2 text-xs text-[#aaa4bb]"><span className="h-2 w-2 bg-[#73e6df] shadow-[0_0_10px_#73e6df]"/> SAVE POINT ACTIVE</div>
-          <button data-testid="button-logout" onClick={()=>void signOut({redirectUrl:basePath||'/'})} className="mb-2 flex w-full items-center gap-3 border border-[#39354e] px-3 py-3 text-left text-sm text-[#b9b3c8] hover:bg-[#242236]"><LogOut size={17}/>Log out</button>
-          <button data-testid="button-toggle-audio" onClick={audio.toggle} className="flex w-full items-center gap-3 border border-[#39354e] px-3 py-3 text-left text-sm text-[#b9b3c8] hover:bg-[#242236]">{audio.muted?<VolumeX size={17}/>:<Volume2 size={17}/>}Sound {audio.muted?'off':'on'}<span className="ml-auto text-[10px] text-[#7f7995]">{audio.muted?'MUTED':'ON'}</span></button>
-        </div>
-      </aside>
-      <main className="min-w-0 flex-1 pb-24 md:pb-8">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[#39354e] bg-[#1b1930]/95 px-4 py-3 backdrop-blur-md md:px-8">
-          <div className="flex items-center gap-3 md:hidden"><Gamepad2 size={22} className="text-[#f5ca62]"/><span className="pixel-title text-[9px] text-[#f5ca62]">PIXEL QUEST</span></div>
-          <p className="hidden text-xs text-[#8d87a3] md:block">PLAYER JOURNAL <span className="mx-2 text-[#4d4861]">/</span> {path === '/camp' ? 'TODAY' : path.slice(1).toUpperCase()}</p>
-          <div className="flex items-center gap-3"><span className="hidden text-xs text-[#aaa4bb] sm:block">{new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</span><button data-testid="button-logout-mobile" onClick={()=>void signOut({redirectUrl:basePath||'/'})} className="grid h-9 w-9 place-items-center border border-[#454058] text-[#aaa4bb] hover:text-[#f5ca62] md:hidden" aria-label="Log out"><LogOut size={17}/></button><button data-testid="button-toggle-audio-mobile" onClick={audio.toggle} className="grid h-9 w-9 place-items-center border border-[#454058] text-[#aaa4bb] hover:text-[#f5ca62] md:hidden" aria-label={audio.muted?'Turn sound on':'Mute sound'}>{audio.muted?<VolumeX size={17}/>:<Volume2 size={17}/>}</button></div>
-        </header>
-        <div className="mx-auto max-w-[1160px] px-4 py-7 md:px-8 md:py-9">{children}</div>
-      </main>
-    </div>
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#48435d] bg-[#171625]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">{nav.map(({href,label,icon:Icon})=><Link href={href} key={href} data-testid={`mobile-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex flex-col items-center gap-1.5 py-3 text-[9px] font-semibold no-underline',path===href?'text-[#f5ca62]':'text-[#938da6]')}><Icon size={19}/>{label}</Link>)}</nav>
-  </div>;
-}
-function LoadingState() { return <div className="space-y-4" aria-label="Loading"><div className="h-32 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="grid gap-4 md:grid-cols-2"><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/></div></div>; }
-function ErrorState({retry}:{retry:()=>void}) { return <Panel className="text-center"><Shield className="mx-auto mb-3 text-[#f5ca62]"/><p className="mb-4 text-sm text-[#b9b3c8]">The journal could not sync just now.</p><Button testId="button-retry" onClick={retry}>Try again</Button></Panel>; }
-function EmptyState({title,detail,action}:{title:string;detail:string;action?:ReactNode}) { return <div className="border border-dashed border-[#514967] bg-[#1c1a2b] px-5 py-8 text-center"><div className="mx-auto mb-3 grid h-10 w-10 place-items-center border border-[#514967] text-[#73e6df]"><Sparkles size={18}/></div><p className="pixel-title text-[9px] text-[#e8dfcb]">{title}</p><p className="mx-auto mt-3 max-w-xs text-sm text-[#928ba4]">{detail}</p>{action&&<div className="mt-5">{action}</div>}</div>; }
-function LevelBar({profile}:{profile:{level:number;xpIntoLevel:number;xpToNextLevel:number;xp:number;streak:number;title:string}}) {
-  const pct = Math.min(100, profile.xpToNextLevel ? profile.xpIntoLevel / profile.xpToNextLevel * 100 : 100);
-  return <Panel className="relative overflow-hidden border-[#696044] bg-[linear-gradient(115deg,#2a2639,#252238_55%,#333044)]">
-    <div className="absolute -right-4 -top-8 h-36 w-36 rotate-12 border-[18px] border-[#f5ca62]/[.035]"/>
-    <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-      <div className="flex items-center gap-4"><div className="grid h-[68px] w-[68px] shrink-0 place-items-center border-2 border-[#f5ca62] bg-[#3c3546] shadow-[4px_4px_0_#14121f]"><span className="pixel-title text-[13px] text-[#f5ca62]">{profile.level}</span></div><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.18em] text-[#a9a1b8]">Current class</p><h1 className="pixel-title text-[11px] text-[#f4e7c5] md:text-[13px]">{profile.title || 'Quest beginner'}</h1><p className="mt-2 text-sm text-[#8e879e]">Level {profile.level} adventurer</p></div></div>
-      <div className="w-full sm:max-w-[360px]"><div className="mb-2 flex items-end justify-between"><span className="font-mono text-[9px] uppercase tracking-wider text-[#73e6df]">Experience</span><span className="font-mono text-[9px] text-[#d6cfae]">{profile.xpIntoLevel} / {profile.xpToNextLevel} XP</span></div><div className="h-4 border-2 border-[#625a69] bg-[#191725] p-[2px]"><div className="xp-fill h-full bg-[#f5ca62]" style={{width:`${pct}%`}}/></div><div className="mt-2 flex justify-between text-[11px] text-[#918aa3]"><span>{profile.xp} lifetime XP</span><span>{profile.streak} day streak <Flame size={12} className="inline text-[#f5a55a]"/></span></div></div>
-    </div>
-  </Panel>;
-}
-function HabitLine({habit, onToggle, loading}:{habit:Habit;onToggle:()=>void;loading:boolean}) {
-  const done=habit.completedDates.some(value=>dateKey(value)===today());
-  return <div data-testid={`habit-row-${habit.id}`} className={cx('flex items-center gap-3 border-b border-[#39354e] py-3.5 last:border-0',done&&'opacity-70')}>
-    <button data-testid={`button-complete-habit-${habit.id}`} disabled={loading} onClick={onToggle} aria-label={`${done?'Undo':'Complete'} ${habit.title}`} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2 transition-all',done?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#666078] text-transparent hover:border-[#73e6df] hover:text-[#73e6df]')}>{done?<Check size={17}/>:<Circle size={17}/>}</button>
-    <div className="min-w-0 flex-1"><p className={cx('truncate text-sm font-semibold',done&&'text-[#aaa4bb] line-through')}>{habit.title}</p><p className="mt-1 text-[11px] text-[#89829b]">{habit.category} <span className="px-1 text-[#514967]">/</span> {habit.frequency}</p></div><span className="hidden border border-[#464158] px-2 py-1 font-mono text-[8px] uppercase text-[#a59eb6] sm:block">{habit.frequency==='daily'?'DAILY':`${habit.days.length} DAYS`}</span>
-  </div>;
-}
-function DashboardPage() {
-  const qc=useQueryClient(); const {data:dashboard,isLoading,isError,refetch}=useGetPixelQuestDashboard(); const {data:habits=[]}=useGetHabits({archived:false}); const {data:tasks=[]}=useGetTasks({status:'active'}); const {data:achievements=[]}=useGetAchievements();
-  const completeHabit=useCompleteHabit(); const undoHabit=useUndoHabitCompletion(); const completeTask=useCompleteTask(); const undoTask=useUndoTaskCompletion(); const audio=useChime();
-  const [levelFlash,setLevelFlash]=useState(false);
-  const toggleHabit=(habit:Habit)=>{const done=habit.completedDates.some(value=>dateKey(value)===today());(done?undoHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:()=>invalidateAll(qc)}):completeHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:(result)=>{invalidateAll(qc);audio.chime();if(result.leveledUp){setLevelFlash(true);window.setTimeout(()=>setLevelFlash(false),1600)}}}));};
-  const toggleTask=(task:QuestTask)=>{(task.status==='completed'?undoTask.mutate({taskId:task.id},{onSuccess:()=>invalidateAll(qc)}):completeTask.mutate({taskId:task.id},{onSuccess:(result)=>{invalidateAll(qc);audio.chime();if(result.leveledUp){setLevelFlash(true);window.setTimeout(()=>setLevelFlash(false),1600)}}}));};
-  if(isLoading)return <LoadingState/>; if(isError||!dashboard)return <ErrorState retry={()=>void refetch()}/>;
-    const completed=habits.filter(h=>h.completedDates.some(value=>dateKey(value)===today())).length+dashboard.completedTasks;
-  const total=habits.length+tasks.length+dashboard.completedTasks;
-  const completionPct=Math.round(dashboard.completionRate<=1?dashboard.completionRate*100:dashboard.completionRate);
-  return <div className="space-y-6">
-    <div className="flex items-end justify-between gap-4"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.2em] text-[#73e6df]">A new day, a new run</p><h1 className="pixel-title text-[15px] text-[#f3e9cf] md:text-[19px]">Your daily quest</h1><p className="mt-3 text-sm text-[#928ba4]">Small wins make a legendary story.</p></div><div className="hidden items-center gap-2 border border-[#514967] px-3 py-2 text-xs text-[#aaa4bb] sm:flex"><CalendarDays size={14} className="text-[#f5ca62]"/>{dateLabel(today())}</div></div>
-    <LevelBar profile={dashboard.profile}/>
-    {levelFlash&&<div className="fixed inset-0 z-40 pointer-events-none overflow-hidden" aria-live="polite">{Array.from({length:24},(_,i)=><i key={i} className="pixel-spark absolute h-2 w-2" style={{left:`${(i*37)%97}%`,top:`${(i*19)%75}%`,background:['#f5ca62','#73e6df','#b497f7'][i%3],animationDelay:`${i*16}ms`}}/>)}<div className="absolute left-1/2 top-[24%] -translate-x-1/2 border-2 border-[#f5ca62] bg-[#211f33] px-5 py-3 text-center shadow-[5px_5px_0_#0e0d18]"><p className="pixel-title text-[10px] text-[#f5ca62]">LEVEL UP!</p><p className="mt-2 font-mono text-[9px] text-[#73e6df]">NEW POWER UNLOCKED</p></div></div>}
-    <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
-      <Panel><PixelHeading eyebrow="TODAY'S ROUTINE" action={<Link href="/habits" data-testid="link-all-habits" className="flex items-center gap-1 text-xs font-semibold text-[#73e6df] no-underline hover:text-[#b3fffa]">Manage <ArrowUpRight size={14}/></Link>}>Habit quests</PixelHeading>
-        {habits.length?habits.map(h=><HabitLine key={h.id} habit={h} loading={completeHabit.isPending||undoHabit.isPending} onToggle={()=>toggleHabit(h)}/>):<EmptyState title="NO HABITS YET" detail="Add a small ritual to your daily quest list." action={<Link href="/habits" className="text-sm font-bold text-[#73e6df] no-underline">Create your first habit</Link>}/>}
-      </Panel>
-      <Panel><PixelHeading eyebrow="SIDE QUESTS" action={<Link href="/quests" data-testid="link-all-quests" className="flex items-center gap-1 text-xs font-semibold text-[#73e6df] no-underline hover:text-[#b3fffa]">Quest board <ArrowUpRight size={14}/></Link>}>Active quests</PixelHeading>
-        {tasks.length?tasks.slice(0,5).map(t=><div key={t.id} data-testid={`quest-row-${t.id}`} className="flex items-center gap-3 border-b border-[#39354e] py-3 last:border-0"><button data-testid={`button-complete-task-${t.id}`} onClick={()=>toggleTask(t)} className="grid h-7 w-7 shrink-0 place-items-center border-2 border-[#625a72] text-[#625a72] hover:border-[#f5ca62] hover:text-[#f5ca62]" aria-label={`Complete ${t.title}`}><Check size={14}/></button><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{t.title}</p><p className="mt-1 text-[11px] text-[#89829b]">{t.category}{t.dueDate&&` · due ${dateLabel(t.dueDate)}`}</p></div><span className={cx('font-mono text-[8px] uppercase',t.difficulty==='hard'?'text-[#f29b83]':t.difficulty==='medium'?'text-[#f5ca62]':'text-[#73e6df]')}>{t.difficulty}</span></div>):<EmptyState title="NO ACTIVE QUESTS" detail="Your quest board is clear. Add a task when something needs doing." action={<Link href="/quests" className="text-sm font-bold text-[#73e6df] no-underline">Open quest board</Link>}/>}
-      </Panel>
-    </div>
-    <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
-      <Panel><PixelHeading eyebrow="FIELD REPORT">Today's progress</PixelHeading><div className="flex items-end justify-between"><div><strong data-testid="text-completion-rate" className="pixel-title text-[24px] text-[#73e6df]">{completionPct}%</strong><p className="mt-2 text-xs text-[#9a93aa]">completion rate</p></div><div className="text-right"><p className="font-mono text-[11px] text-[#f5ca62]">{completed} / {total || 0}</p><p className="mt-2 text-xs text-[#9a93aa]">quests checked today</p></div></div><div className="mt-5 h-3 border border-[#524b63] bg-[#161522] p-[2px]"><div className="xp-fill h-full bg-[#73e6df]" style={{width:`${Math.max(0,Math.min(100,completionPct))}%`}}/></div><div className="mt-5 flex justify-between border-t border-[#39354e] pt-4"><span className="text-xs text-[#9a93aa]">All-time completions</span><strong className="font-mono text-xs text-[#f5ca62]">{dashboard.totalCompletions}</strong></div></Panel>
-      <Panel><PixelHeading eyebrow="TROPHY CASE" action={<Medal size={17} className="text-[#f5ca62]"/>}>Achievements</PixelHeading>{achievements.length?<div className="grid gap-2 sm:grid-cols-2">{achievements.slice(0,4).map(a=><div key={a.id} data-testid={`achievement-${a.id}`} className={cx('flex gap-3 border p-3',a.unlocked?'border-[#86704a] bg-[#363043]':'border-[#39354e] bg-[#1b1a29] opacity-60')}><div className={cx('grid h-9 w-9 shrink-0 place-items-center border',a.unlocked?'border-[#f5ca62] text-[#f5ca62]':'border-[#514967] text-[#77718d]')}>{a.unlocked?<Medal size={17}/>:<Shield size={17}/>}</div><div><p className="text-xs font-bold text-[#ded8e8]">{a.name}</p><p className="mt-1 text-[10px] leading-relaxed text-[#8f89a2]">{a.description}</p></div></div>)}</div>:<EmptyState title="TROPHIES AWAIT" detail="Keep showing up. Your milestones will be recorded here."/>}</Panel>
-    </div>
-    <Panel><PixelHeading eyebrow="SAVE LOG" action={<History size={16} className="text-[#73e6df]"/>}>Recent activity</PixelHeading>{dashboard.recentActivity.length?<div className="grid gap-x-6 sm:grid-cols-2">{dashboard.recentActivity.slice(0,6).map((a,i)=><div key={a.id} data-testid={`activity-${a.id}`} className="flex items-center gap-3 border-b border-[#39354e] py-3 last:border-0"><span className={cx('grid h-8 w-8 place-items-center border',a.kind==='habit'?'border-[#537872] text-[#73e6df]':'border-[#766543] text-[#f5ca62]')}>{a.kind==='habit'?<Activity size={15}/>:<Flag size={15}/>}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{a.label}</p><p className="mt-1 text-[10px] text-[#817b92]">{new Date(a.happenedAt).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</p></div><span className="font-mono text-[8px] text-[#666079]">#{String(i+1).padStart(2,'0')}</span></div>)}</div>:<EmptyState title="YOUR STORY STARTS HERE" detail="Complete a habit or quest and it will appear in your save log."/>}</Panel>
-  </div>;
-}
-interface HabitEditor { id?:number;title:string;category:string;frequency:'daily'|'weekly';days:number[] }
-function HabitPage() {
-  const qc=useQueryClient(); const {data:habits=[],isLoading,isError,refetch}=useGetHabits({archived:false}); const {data:archived=[]}=useGetHabits({archived:true});
-  const create=useCreateHabit(); const update=useUpdateHabit(); const complete=useCompleteHabit(); const undo=useUndoHabitCompletion();
-  const [editing,setEditing]=useState<HabitEditor|null>(null); const [showArchived,setShowArchived]=useState(false);
-  const save=(event:FormEvent)=>{event.preventDefault();if(!editing)return;const data:HabitInput={title:editing.title.trim(),category:editing.category.trim(),frequency:editing.frequency,days:editing.frequency==='daily'?[0,1,2,3,4,5,6]:editing.days};if(!data.title||!data.category)return;if(editing.id){update.mutate({habitId:editing.id,data},{onSuccess:()=>{invalidateAll(qc);setEditing(null)}})}else create.mutate({data},{onSuccess:()=>{invalidateAll(qc);setEditing(null)}})};
-  const activeList=showArchived?archived:habits;
-  const toggleDay=(day:number)=>setEditing(v=>v?{...v,days:v.days.includes(day)?v.days.filter(d=>d!==day):[...v.days,day].sort()}:v);
-  if(isLoading)return <LoadingState/>; if(isError)return <ErrorState retry={()=>void refetch()}/>;
-  return <div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.2em] text-[#73e6df]">Build your character</p><h1 className="pixel-title text-[15px] text-[#f3e9cf] md:text-[19px]">Habit journal</h1><p className="mt-3 text-sm text-[#928ba4]">Rituals become easier when you can see the streak.</p></div><Button testId="button-add-habit" onClick={()=>setEditing({title:'',category:'Wellbeing',frequency:'daily',days:[1,2,3,4,5]})}><Plus size={16}/> New habit</Button></div>
-    <Panel><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><PixelHeading eyebrow="YOUR ROUTINES">Habit roster</PixelHeading><div className="flex items-center gap-2 text-xs"><span className="text-[#8f89a2]">{habits.length} active</span><Button testId="button-toggle-archived" variant="quiet" className="px-3 py-2 text-xs" onClick={()=>setShowArchived(v=>!v)}><Archive size={14}/>{showArchived?'Show active':'Archived'}{showArchived&&archived.length?` (${archived.length})`:''}</Button></div></div>
-      {activeList.length ? <div className="grid gap-3 lg:grid-cols-2">{activeList.map(h => <HabitCard key={h.id} habit={h} archived={showArchived} onEdit={() => setEditing({id:h.id,title:h.title,category:h.category,frequency:h.frequency,days:h.days})} onArchive={() => update.mutate({habitId:h.id,data:{archived:!showArchived}},{onSuccess:() => invalidateAll(qc)})} onComplete={(date,done) => done ? undo.mutate({habitId:h.id,data:{date}},{onSuccess:() => invalidateAll(qc)}) : complete.mutate({habitId:h.id,data:{date}},{onSuccess:() => invalidateAll(qc)})} />)}</div> : <EmptyState title={showArchived?'NO ARCHIVED HABITS':'NO ROUTINES YET'} detail={showArchived?'Archived routines are kept here for reference.':'Start with one small habit you would like to repeat.'} action={!showArchived&&<Button testId="button-empty-add-habit" onClick={()=>setEditing({title:'',category:'Wellbeing',frequency:'daily',days:[1,2,3,4,5]})}><Plus size={15}/> Add a habit</Button>}/>}
-    </Panel>
-    {editing&&<Modal title={editing.id?'Edit habit':'Create a habit'} onClose={()=>setEditing(null)}><form onSubmit={save} className="space-y-4"><Field label="Habit name"><input autoFocus required maxLength={80} data-testid="input-habit-title" value={editing.title} onChange={e=>setEditing({...editing,title:e.target.value})} placeholder="A little stretch after waking" className="field"/></Field><Field label="Category"><input required maxLength={40} data-testid="input-habit-category" value={editing.category} onChange={e=>setEditing({...editing,category:e.target.value})} placeholder="Wellbeing, learning..." className="field"/></Field><Field label="Schedule"><select data-testid="select-habit-frequency" value={editing.frequency} onChange={e=>setEditing({...editing,frequency:e.target.value as 'daily'|'weekly'})} className="field"><option value="daily">Every day</option><option value="weekly">Choose days each week</option></select></Field>{editing.frequency==='weekly'&&<fieldset><legend className="mb-2 text-xs font-bold text-[#b9b3c8]">Repeat on</legend><div className="flex flex-wrap gap-2">{weekDays.map((d,i)=><button type="button" key={d} data-testid={`button-day-${i}`} onClick={()=>toggleDay(i)} className={cx('border px-3 py-2 text-xs font-bold',editing.days.includes(i)?'border-[#73e6df] bg-[#2b4546] text-[#9cf4ed]':'border-[#514967] text-[#9a93aa]')}>{d}</button>)}</div></fieldset>}<div className="flex justify-end gap-2 pt-2"><Button testId="button-cancel-habit" variant="quiet" onClick={()=>setEditing(null)}>Cancel</Button><Button testId="button-save-habit" disabled={create.isPending||update.isPending}>{create.isPending||update.isPending?'Saving...':'Save habit'}</Button></div></form></Modal>}
-  </div>;
-}
-function HabitCard({habit,archived,onEdit,onArchive,onComplete}:{habit:Habit;archived:boolean;onEdit:()=>void;onArchive:()=>void;onComplete:(date:string,done:boolean)=>void}) {
-  const doneDates=new Set(habit.completedDates.map(dateKey)); const now=new Date(); const days=Array.from({length:30},(_,i)=>{const date=new Date(now);date.setDate(now.getDate()-(29-i));return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`});
-  const todayDone=doneDates.has(today());
-  return <article data-testid={`card-habit-${habit.id}`} className="border border-[#49445d] bg-[#1c1a2b] p-4"><div className="flex items-start gap-3"><button disabled={archived} data-testid={`button-habit-check-${habit.id}`} onClick={()=>onComplete(today(),todayDone)} className={cx('mt-0.5 grid h-7 w-7 shrink-0 place-items-center border-2',todayDone?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#625b73] text-transparent hover:border-[#73e6df] hover:text-[#73e6df]')} aria-label={todayDone?'Undo today':'Complete today'}>{todayDone?<Check size={15}/>:<CheckCircle2 size={15}/>}</button><div className="min-w-0 flex-1"><h3 className={cx('truncate text-sm font-bold',todayDone&&'text-[#aaa4bb]')}>{habit.title}</h3><p className="mt-1 text-[11px] text-[#8e879e]">{habit.category} · {habit.frequency==='daily'?'Every day':habit.days.map(d=>weekDays[d]).join(', ')}</p></div><button data-testid={`button-edit-habit-${habit.id}`} onClick={onEdit} className="border border-[#514967] px-2.5 py-1.5 text-[10px] font-bold text-[#b8b0c8] hover:text-[#f5ca62]">Edit</button><button data-testid={`button-archive-habit-${habit.id}`} onClick={onArchive} className="grid h-8 w-8 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83]" title={archived?'Restore habit':'Archive habit'} aria-label={archived?'Restore habit':'Archive habit'}>{archived?<RotateCcw size={14}/>:<Archive size={14}/>}</button></div><div className="mt-4 border-t border-[#39354e] pt-3"><div className="mb-2 flex items-center justify-between"><span className="font-mono text-[8px] uppercase tracking-[.16em] text-[#827b94]">Last 30 days</span><span className="text-[10px] text-[#9690a5]">{habit.completedDates.length} total clears</span></div><div className="grid grid-cols-10 gap-1.5" style={{gridTemplateColumns:'repeat(10,minmax(0,1fr))'}}>{days.map((d,i)=><button key={d} data-testid={`history-day-${habit.id}-${i}`} onClick={()=>onComplete(d,doneDates.has(d))} title={`${dateLabel(d)} ${doneDates.has(d)?'completed':'not completed'}`} className={cx('aspect-square min-h-[16px] border',doneDates.has(d)?'border-[#73e6df] bg-[#73e6df] shadow-[0_0_8px_#73e6df33]':'border-[#49445d] bg-[#262337] hover:border-[#9a92ab]')}/>)}</div><div className="mt-1 grid grid-cols-10 text-center text-[8px] text-[#726c84]" style={{gridTemplateColumns:'repeat(10,minmax(0,1fr))'}}>{days.map((d,i)=><span key={d}>{i%5===0?new Date(`${d}T12:00:00`).getDate():''}</span>)}</div></div></article>;
-}
-function Field({label,children}:{label:string;children:ReactNode}) { return <label className="block"><span className="mb-1.5 block text-xs font-bold text-[#b9b3c8]">{label}</span>{children}</label>; }
-function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}) { return <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#0d0c16]/80 p-4 backdrop-blur-sm" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><div role="dialog" aria-modal="true" className="pixel-border my-auto w-full max-w-lg bg-[#211f33] p-5 md:p-7"><div className="mb-5 flex items-start justify-between"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.18em] text-[#73e6df]">QUEST EDITOR</p><h2 className="pixel-title text-[11px] text-[#f3e9cf]">{title}</h2></div><button data-testid="button-close-modal" aria-label="Close dialog" onClick={onClose} className="grid h-8 w-8 place-items-center border border-[#514967] text-[#aaa4bb] hover:text-[#f5ca62]"><X size={16}/></button></div>{children}</div></div>; }
-function QuestPage() {
-  const qc=useQueryClient(); const [status,setStatus]=useState<'active'|'completed'|'all'>('active'); const [difficulty,setDifficulty]=useState('all'); const [editing,setEditing]=useState<(TaskInput&{id?:number})|null>(null);
-  const params=useMemo(()=>({status,difficulty:difficulty==='all'?undefined:difficulty as 'easy'|'medium'|'hard'}),[status,difficulty]);
-  const {data:tasks=[],isLoading,isError,refetch}=useGetTasks(params); const create=useCreateTask();const update=useUpdateTask();const remove=useDeleteTask();const complete=useCompleteTask();const undo=useUndoTaskCompletion();
-  const save=(event:FormEvent)=>{event.preventDefault();if(!editing)return;const data:TaskInput={title:editing.title.trim(),category:editing.category.trim(),difficulty:editing.difficulty,priority:editing.priority,dueDate:editing.dueDate||null};if(!data.title||!data.category)return;if(editing.id)update.mutate({taskId:editing.id,data},{onSuccess:()=>{invalidateAll(qc);setEditing(null)}});else create.mutate({data},{onSuccess:()=>{invalidateAll(qc);setEditing(null)}})};
-  const toggle=(task:QuestTask)=>{(task.status==='completed'?undo.mutate({taskId:task.id},{onSuccess:()=>invalidateAll(qc)}):complete.mutate({taskId:task.id},{onSuccess:()=>invalidateAll(qc)}))};
-  if(isLoading)return <LoadingState/>;if(isError)return <ErrorState retry={()=>void refetch()}/>;
-  return <div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.2em] text-[#73e6df]">One step at a time</p><h1 className="pixel-title text-[15px] text-[#f3e9cf] md:text-[19px]">Quest board</h1><p className="mt-3 text-sm text-[#928ba4]">Choose a quest. Clear it. Collect your XP.</p></div><Button testId="button-add-quest" onClick={()=>setEditing({title:'',category:'Personal',difficulty:'medium',priority:false,dueDate:null})}><Plus size={16}/> New quest</Button></div>
-    <Panel><div className="flex flex-col gap-4 border-b border-[#39354e] pb-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-2">{(['active','completed','all'] as const).map(item=><button key={item} data-testid={`filter-status-${item}`} onClick={()=>setStatus(item)} className={cx('border px-3 py-2 text-xs font-bold capitalize',status===item?'border-[#f5ca62] bg-[#3a3441] text-[#f5ca62]':'border-[#49445d] text-[#9b94a9] hover:text-[#eee8da]')}>{item}</button>)}</div><label className="flex items-center gap-2 text-xs text-[#9b94a9]"><span>Difficulty</span><select data-testid="filter-difficulty" value={difficulty} onChange={e=>setDifficulty(e.target.value)} className="border border-[#514967] bg-[#1a1928] px-3 py-2 text-xs text-[#ddd7e7] outline-none focus:border-[#73e6df]"><option value="all">Any level</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label></div>
-      {tasks.length?<div className="divide-y divide-[#39354e]">{tasks.map(t=><QuestRow key={t.id} task={t} onToggle={()=>toggle(t)} onEdit={()=>setEditing({id:t.id,title:t.title,category:t.category,difficulty:t.difficulty,priority:t.priority,dueDate:t.dueDate})} onDelete={()=>{if(window.confirm(`Delete "${t.title}" from your quest board?`))remove.mutate({taskId:t.id},{onSuccess:()=>invalidateAll(qc)})}} busy={complete.isPending||undo.isPending}/>)}</div>:<div className="py-8"><EmptyState title={status==='completed'?'NO CLEARED QUESTS':'THE BOARD IS CLEAR'} detail={status==='completed'?'Finished quests will collect here.':'Add a task and turn it into a small, winnable quest.'} action={status!=='completed'&&<Button testId="button-empty-add-quest" onClick={()=>setEditing({title:'',category:'Personal',difficulty:'medium',priority:false,dueDate:null})}><Plus size={15}/> Add first quest</Button>}/></div>}
-    </Panel>
-    {editing&&<Modal title={editing.id?'Edit quest':'Create a quest'} onClose={()=>setEditing(null)}><form onSubmit={save} className="space-y-4"><Field label="Quest title"><input autoFocus required maxLength={120} data-testid="input-quest-title" value={editing.title} onChange={e=>setEditing({...editing,title:e.target.value})} placeholder="Send the message I've been putting off" className="field"/></Field><Field label="Quest category"><input required maxLength={40} data-testid="input-quest-category" value={editing.category} onChange={e=>setEditing({...editing,category:e.target.value})} placeholder="Work, home, people..." className="field"/></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Difficulty"><select data-testid="select-quest-difficulty" value={editing.difficulty} onChange={e=>setEditing({...editing,difficulty:e.target.value as TaskInput['difficulty']})} className="field"><option value="easy">Easy · 10 XP</option><option value="medium">Medium · 25 XP</option><option value="hard">Hard · 50 XP</option></select></Field><Field label="Due date"><input type="date" data-testid="input-quest-due-date" value={editing.dueDate||''} onChange={e=>setEditing({...editing,dueDate:e.target.value||null})} className="field"/></Field></div><label className="flex cursor-pointer items-center gap-3 border border-[#514967] px-3 py-3 text-sm text-[#c5bed2]"><input data-testid="checkbox-quest-priority" type="checkbox" checked={editing.priority} onChange={e=>setEditing({...editing,priority:e.target.checked})} className="h-4 w-4 accent-[#f5ca62]"/>Mark as a priority quest <span className="ml-auto text-[10px] text-[#f5ca62]">PINNED</span></label><div className="flex justify-end gap-2 pt-2"><Button testId="button-cancel-quest" variant="quiet" onClick={()=>setEditing(null)}>Cancel</Button><Button testId="button-save-quest" disabled={create.isPending||update.isPending}>{create.isPending||update.isPending?'Saving...':'Save quest'}</Button></div></form></Modal>}
-  </div>;
-}
-function QuestRow({task,onToggle,onEdit,onDelete,busy}:{task:QuestTask;onToggle:()=>void;onEdit:()=>void;onDelete:()=>void;busy:boolean}) {
-  const completed=task.status==='completed';
-  return <article data-testid={`quest-card-${task.id}`} className="flex flex-wrap items-center gap-3 py-4 sm:flex-nowrap"><button data-testid={`button-toggle-quest-${task.id}`} disabled={busy} onClick={onToggle} aria-label={completed?'Reopen quest':'Complete quest'} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2',completed?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#625b73] text-[#625b73] hover:border-[#73e6df] hover:text-[#73e6df]')}>{completed?<Check size={16}/>:<Circle size={16}/>}</button><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className={cx('text-sm font-bold',completed&&'text-[#8e879e] line-through')}>{task.title}</h3>{task.priority&&<span className="border border-[#776544] px-1.5 py-0.5 font-mono text-[8px] text-[#f5ca62]">PRIORITY</span>}</div><p className="mt-1.5 text-[11px] text-[#8e879e]">{task.category}{task.dueDate&&<><span className="px-1.5">·</span><Clock3 size={11} className="mr-1 inline"/>Due {dateLabel(task.dueDate)}</>}</p></div><span className={cx('min-w-[60px] border px-2 py-1 text-center font-mono text-[8px] uppercase',task.difficulty==='hard'?'border-[#7b4d4e] text-[#f29b83]':task.difficulty==='medium'?'border-[#766541] text-[#f5ca62]':'border-[#466967] text-[#73e6df]')}>{task.difficulty}</span><div className="flex items-center gap-1"><button data-testid={`button-edit-quest-${task.id}`} onClick={onEdit} className="border border-[#514967] px-2.5 py-2 text-[10px] font-bold text-[#aaa4bb] hover:text-[#f5ca62]">Edit</button><button data-testid={`button-delete-quest-${task.id}`} onClick={onDelete} aria-label={`Delete ${task.title}`} className="grid h-8 w-8 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83]"><X size={14}/></button></div></article>;
-}
 function Router() {
   const [location, setLocation]=useLocation();
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} ui={ui} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} localization={{signIn:{start:{title:'Continue your save',subtitle:'Sign in to your Pixel Quest account'}},signUp:{start:{title:'Begin your quest',subtitle:'Create your own adventurer account'}}}} routerPush={(to)=>setLocation(stripBase(to))} routerReplace={(to)=>setLocation(stripBase(to),{replace:true})}>
-    <QueryClientProvider client={queryClient}><CacheInvalidator/><TooltipProvider><ErrorBoundary resetKey={location}><Switch>
+    <QueryClientProvider client={queryClient}><CacheInvalidator/><TooltipProvider><AccountScope><ErrorBoundary resetKey={location}><Switch>
       <Route path="/" component={HomeRoute}/><Route path="/sign-in/*?" component={SignInPage}/><Route path="/sign-up/*?" component={SignUpPage}/>
-      <Route path="/camp">{()=><Protected component={DashboardPage}/>}</Route><Route path="/habits">{()=><Protected component={HabitPage}/>}</Route><Route path="/quests">{()=><Protected component={QuestPage}/>}</Route><Route path="/rewards">{()=><Protected component={RewardsPage}/>}</Route><Route path="/profile">{()=><Protected component={ProfilePage}/>}</Route>
-      <Route component={NotFound}/></Switch></ErrorBoundary><Toaster/></TooltipProvider></QueryClientProvider>
+      <Route path="/camp">{()=><Protected component={CampPage}/>}</Route><Route path="/habits">{()=><Protected component={HabitsPage}/>}</Route><Route path="/quests">{()=><Protected component={QuestsPage}/>}</Route><Route path="/inventory">{()=><Protected component={InventoryPage}/>}</Route><Route path="/rewards">{()=><Protected component={RewardsPage}/>}</Route><Route path="/journal">{()=><Protected component={JournalPage}/>}</Route><Route path="/profile">{()=><Protected component={ProfilePage}/>}</Route>
+      <Route component={NotFound}/></Switch></ErrorBoundary></AccountScope><Toaster/></TooltipProvider></QueryClientProvider>
   </ClerkProvider>;
 }
 function App() {

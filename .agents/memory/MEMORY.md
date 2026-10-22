@@ -1,3 +1,4 @@
 - [Account ownership migration](account-ownership.md) — pre-auth shared records stay preserved and unassigned; never give them to the first account that signs in.
 - [Auth UI bundling](auth-readiness.md) — bundle Clerk UI explicitly; disabling UI preload allows sessions but breaks built-in sign-in forms.
 - [Dependency security](dependency-security.md) — local patches need exploit tests; version-only audits can still flag patched packages with no upstream fix.
+- [Reward economy decisions](reward-economy.md) — freeze actual first payouts; legacy undo must not use newly introduced economy rates.

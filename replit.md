@@ -1,10 +1,14 @@
-# [Project name]
+# Pixel Quest
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An account-based, retro habit tracker that turns real discipline into character progress and user-defined real-life rewards.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (managed workflow supplies PORT)
+- `pnpm --filter @workspace/pixel-quest run dev` — responsive web app
+- `pnpm --filter @workspace/pixel-quest-mobile run dev` — existing Expo companion
+- `pnpm --filter @workspace/api-server run test:rpg` — real-database RPG regression suite, isolated temporary accounts with cleanup
+- `pnpm run test:security` — dependency exploit regression checks; do not replace these with a version-only audit
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -18,27 +22,42 @@ _Replace the heading above with the project's name, and this line with one sente
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- API build: esbuild (ESM bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — API source of truth; regenerate clients/validators after contract changes.
+- `lib/db/src/schema/` — original relational records plus an additive, account-owned RPG journal.
+- `artifacts/api-server/src/lib/rpg-rules.ts` — calendar math and published mechanics help.
+- `artifacts/api-server/src/lib/rpg-game.ts` — transactional rule engine shared by new RPG and legacy mobile endpoints.
+- `artifacts/api-server/src/lib/rpg-game.test.ts` — calendar, economy, isolation and migration regression tests.
+- `artifacts/pixel-quest/src/pages/` — Camp, Habits, Quests, Inventory, Rewards, Journal, Profile.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Preserve unowned pre-auth demo records. A first sign-in is not evidence of ownership.
+- Keep old mobile endpoint shapes while applying the same economy and ownership checks as web actions.
+- Freeze the first actual completion payout, including legacy awards, so undo/redo cannot recalculate a more profitable payout.
+- Eligibility and spending are separate: all reward gates must pass; claiming charges only its explicitly configured Gold cost. Savings are virtual/manual, not bank transactions.
+- Calendar settlement uses the configured IANA timezone and historical habit schedules. Introducing RPG mechanics never charges for earlier days.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Private Clerk accounts, username settings, level-gated avatars and milestone timeline.
+- Scheduled binary/numeric habits, partial progress, STR/INT/WIS, 30-day history, streaks and mandatory-habit HP penalties.
+- Quests with exact difficulty payouts, stable task-bundle bosses, rare loot, merchant purchases and usable equipment.
+- AND-gated real-life rewards, claim history, virtual savings and an optional daily chest with visible probabilities/history.
+- Weekly earned-progress reports, a private downloadable pixel player card, persistent sound/scanline preferences, and browser-only reminders.
+- Native screens retain the original habit/task/reward/profile flows; new web RPG screen parity is separate from native auth verification and native reminders.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Clerk UI is bundled explicitly with `ui={ui}`. Preserve managed-host key/proxy handling.
+- Browser reminders require permission and an open web app; they are not native/background push notifications.
+- HP catches up when the account next loads; no always-on worker is required. A faint lasts six hours, halves XP, then recovers 50 HP.
+- A claimed reward or defeated-boss member cannot be reopened to farm rewards. Deleting an unfinished boss member retires that boss without payout.
+- The optional chest is never a paid draw, has no cash value, and enforces both a local-day limit and a 24-hour cooldown.
+- The dependency exploit suite currently fails two existing `braces` nesting-depth checks. Neither dependency patches nor the lockfile were changed by the RPG work; repair this before claiming a clean security check.
 
 ## Pointers
 

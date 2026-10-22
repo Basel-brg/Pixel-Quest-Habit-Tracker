@@ -9,6 +9,490 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Authoritative account-scoped RPG journal, settled in the player's timezone
+ */
+export const getRpgStateResponseRewardsItemTwoConditionsItemTargetMax = 1000000;
+
+
+
+export const GetRpgStateResponse = zod.object({
+  "today": zod.string(),
+  "timezone": zod.string(),
+  "hp": zod.number().int(),
+  "faintedUntil": zod.string().nullable(),
+  "campingToday": zod.boolean(),
+  "stateSince": zod.string(),
+  "profile": zod.object({
+  "username": zod.string(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "level": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "lifetimeTasksVanquished": zod.number().int(),
+  "highestHabitStreak": zod.number().int(),
+  "habitStreaks": zod.array(zod.object({
+  "habitId": zod.number().int(),
+  "habitTitle": zod.string(),
+  "currentStreak": zod.number().int(),
+  "highestStreak": zod.number().int()
+})),
+  "avatars": zod.array(zod.object({
+  "id": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "name": zod.string(),
+  "role": zod.string(),
+  "description": zod.string(),
+  "requiredLevel": zod.number().int(),
+  "unlocked": zod.boolean()
+})),
+  "milestones": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "achievedAt": zod.coerce.date()
+}))
+}),
+  "skills": zod.object({
+  "STR": zod.number().int(),
+  "INT": zod.number().int(),
+  "WIS": zod.number().int()
+}),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "frequency": zod.enum(['daily', 'weekly']),
+  "days": zod.array(zod.number().int()),
+  "archived": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "completedDates": zod.array(zod.coerce.date())
+}).and(zod.object({
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
+  "progress": zod.number(),
+  "streak": zod.number().int(),
+  "bestStreak": zod.number().int(),
+  "scheduledToday": zod.boolean(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "status": zod.enum(['complete', 'partial', 'missed', 'off', 'protected', 'upcoming']),
+  "value": zod.number(),
+  "target": zod.number()
+}))
+}))),
+  "quests": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
+  "category": zod.string(),
+  "priority": zod.boolean(),
+  "status": zod.enum(['active', 'completed']),
+  "dueDate": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+}).and(zod.object({
+  "tags": zod.array(zod.string()),
+  "type": zod.enum(['single', 'weekly']),
+  "xpReward": zod.number().int(),
+  "goldReward": zod.number().int()
+}))),
+  "rewards": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(getRpgStateResponseRewardsItemTwoConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number()
+}))),
+  "inventory": zod.array(zod.object({
+  "id": zod.string(),
+  "catalogId": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number().int(),
+  "equipped": zod.boolean(),
+  "requiredLevel": zod.number().int()
+})),
+  "merchant": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int(),
+  "requiredLevel": zod.number().int(),
+  "consumable": zod.boolean()
+})),
+  "bosses": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "hp": zod.number().int(),
+  "maxHp": zod.number().int(),
+  "taskIds": zod.array(zod.number().int()),
+  "defeated": zod.boolean(),
+  "bonusGold": zod.number().int(),
+  "loot": zod.string()
+})),
+  "currentWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "previousWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "chest": zod.object({
+  "enabled": zod.boolean(),
+  "eligible": zod.boolean(),
+  "opened": zod.boolean(),
+  "outcome": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "outcome": zod.string()
+})),
+  "rewards": zod.array(zod.object({
+  "label": zod.string(),
+  "probability": zod.number()
+}))
+}),
+  "rules": zod.array(zod.string()),
+  "message": zod.string(),
+  "effect": zod.enum(['none', 'complete', 'boss', 'reward'])
+})
+
+
+/**
+ * @summary Transactional, idempotent RPG action
+ */
+export const performRpgActionBodyRequestIdMin = 8;
+export const performRpgActionBodyRequestIdMax = 100;
+
+
+export const performRpgActionBodyItemIdMax = 100;
+
+export const performRpgActionBodyTitleMax = 120;
+
+export const performRpgActionBodyDescriptionMax = 300;
+
+export const performRpgActionBodyCategoryMax = 40;
+
+export const performRpgActionBodyDaysItemMin = 0;
+export const performRpgActionBodyDaysItemMax = 6;
+
+export const performRpgActionBodyDaysMax = 7;
+
+export const performRpgActionBodyTargetMax = 1000000;
+
+export const performRpgActionBodyUnitMax = 30;
+
+export const performRpgActionBodyValueMin = 0;
+export const performRpgActionBodyValueMax = 1000000;
+
+export const performRpgActionBodyDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const performRpgActionBodyTagsItemMax = 30;
+
+export const performRpgActionBodyTagsMax = 10;
+
+export const performRpgActionBodyConditionsItemTargetMax = 1000000;
+
+export const performRpgActionBodyConditionsMax = 3;
+
+export const performRpgActionBodyClaimCostMin = 0;
+export const performRpgActionBodyClaimCostMax = 1000000;
+
+export const performRpgActionBodySavingsTargetMin = 0;
+export const performRpgActionBodySavingsTargetMax = 100000000;
+
+export const performRpgActionBodySavedAmountMin = 0;
+export const performRpgActionBodySavedAmountMax = 100000000;
+
+export const performRpgActionBodySavingsPerQuestMin = 0;
+export const performRpgActionBodySavingsPerQuestMax = 100000;
+
+export const performRpgActionBodyTimezoneMax = 100;
+
+export const performRpgActionBodyUsernameRegExp = new RegExp('^[A-Za-z0-9_]{3,20}$');
+
+
+export const PerformRpgActionBody = zod.object({
+  "requestId": zod.string().min(performRpgActionBodyRequestIdMin).max(performRpgActionBodyRequestIdMax),
+  "action": zod.enum(['saveHabit', 'deleteHabit', 'progressHabit', 'saveQuest', 'deleteQuest', 'completeQuest', 'saveReward', 'deleteReward', 'claimReward', 'buyItem', 'updateItem', 'deleteItem', 'equipItem', 'consumeItem', 'settings', 'drawChest', 'savings', 'profile']),
+  "id": zod.number().int().min(1).optional(),
+  "itemId": zod.string().max(performRpgActionBodyItemIdMax).optional(),
+  "title": zod.string().min(1).max(performRpgActionBodyTitleMax).optional(),
+  "description": zod.string().max(performRpgActionBodyDescriptionMax).optional(),
+  "category": zod.string().max(performRpgActionBodyCategoryMax).optional(),
+  "frequency": zod.enum(['daily', 'weekly']).optional(),
+  "days": zod.array(zod.number().int().min(performRpgActionBodyDaysItemMin).max(performRpgActionBodyDaysItemMax)).max(performRpgActionBodyDaysMax).optional(),
+  "archived": zod.boolean().optional(),
+  "mandatory": zod.boolean().optional(),
+  "target": zod.number().min(1).max(performRpgActionBodyTargetMax).optional(),
+  "unit": zod.string().max(performRpgActionBodyUnitMax).optional(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "value": zod.number().min(performRpgActionBodyValueMin).max(performRpgActionBodyValueMax).optional(),
+  "date": zod.string().regex(performRpgActionBodyDateRegExp).optional(),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']).optional(),
+  "priority": zod.boolean().optional(),
+  "dueDate": zod.string().nullish(),
+  "tags": zod.array(zod.string().max(performRpgActionBodyTagsItemMax)).max(performRpgActionBodyTagsMax).optional(),
+  "type": zod.enum(['single', 'weekly']).optional(),
+  "completed": zod.boolean().optional(),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(performRpgActionBodyConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})).min(1).max(performRpgActionBodyConditionsMax).optional(),
+  "claimCost": zod.number().int().min(performRpgActionBodyClaimCostMin).max(performRpgActionBodyClaimCostMax).optional(),
+  "savingsTarget": zod.number().min(performRpgActionBodySavingsTargetMin).max(performRpgActionBodySavingsTargetMax).optional(),
+  "savedAmount": zod.number().min(performRpgActionBodySavedAmountMin).max(performRpgActionBodySavedAmountMax).optional(),
+  "savingsPerQuest": zod.number().min(performRpgActionBodySavingsPerQuestMin).max(performRpgActionBodySavingsPerQuestMax).optional(),
+  "timezone": zod.string().max(performRpgActionBodyTimezoneMax).optional(),
+  "chestEnabled": zod.boolean().optional(),
+  "equipped": zod.boolean().optional(),
+  "username": zod.string().regex(performRpgActionBodyUsernameRegExp).optional(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional()
+})
+
+export const performRpgActionResponseRewardsItemTwoConditionsItemTargetMax = 1000000;
+
+
+
+export const PerformRpgActionResponse = zod.object({
+  "today": zod.string(),
+  "timezone": zod.string(),
+  "hp": zod.number().int(),
+  "faintedUntil": zod.string().nullable(),
+  "campingToday": zod.boolean(),
+  "stateSince": zod.string(),
+  "profile": zod.object({
+  "username": zod.string(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "level": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "lifetimeTasksVanquished": zod.number().int(),
+  "highestHabitStreak": zod.number().int(),
+  "habitStreaks": zod.array(zod.object({
+  "habitId": zod.number().int(),
+  "habitTitle": zod.string(),
+  "currentStreak": zod.number().int(),
+  "highestStreak": zod.number().int()
+})),
+  "avatars": zod.array(zod.object({
+  "id": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "name": zod.string(),
+  "role": zod.string(),
+  "description": zod.string(),
+  "requiredLevel": zod.number().int(),
+  "unlocked": zod.boolean()
+})),
+  "milestones": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "achievedAt": zod.coerce.date()
+}))
+}),
+  "skills": zod.object({
+  "STR": zod.number().int(),
+  "INT": zod.number().int(),
+  "WIS": zod.number().int()
+}),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "frequency": zod.enum(['daily', 'weekly']),
+  "days": zod.array(zod.number().int()),
+  "archived": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "completedDates": zod.array(zod.coerce.date())
+}).and(zod.object({
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
+  "progress": zod.number(),
+  "streak": zod.number().int(),
+  "bestStreak": zod.number().int(),
+  "scheduledToday": zod.boolean(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "status": zod.enum(['complete', 'partial', 'missed', 'off', 'protected', 'upcoming']),
+  "value": zod.number(),
+  "target": zod.number()
+}))
+}))),
+  "quests": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
+  "category": zod.string(),
+  "priority": zod.boolean(),
+  "status": zod.enum(['active', 'completed']),
+  "dueDate": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+}).and(zod.object({
+  "tags": zod.array(zod.string()),
+  "type": zod.enum(['single', 'weekly']),
+  "xpReward": zod.number().int(),
+  "goldReward": zod.number().int()
+}))),
+  "rewards": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(performRpgActionResponseRewardsItemTwoConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number()
+}))),
+  "inventory": zod.array(zod.object({
+  "id": zod.string(),
+  "catalogId": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number().int(),
+  "equipped": zod.boolean(),
+  "requiredLevel": zod.number().int()
+})),
+  "merchant": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int(),
+  "requiredLevel": zod.number().int(),
+  "consumable": zod.boolean()
+})),
+  "bosses": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "hp": zod.number().int(),
+  "maxHp": zod.number().int(),
+  "taskIds": zod.array(zod.number().int()),
+  "defeated": zod.boolean(),
+  "bonusGold": zod.number().int(),
+  "loot": zod.string()
+})),
+  "currentWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "previousWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "chest": zod.object({
+  "enabled": zod.boolean(),
+  "eligible": zod.boolean(),
+  "opened": zod.boolean(),
+  "outcome": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "outcome": zod.string()
+})),
+  "rewards": zod.array(zod.object({
+  "label": zod.string(),
+  "probability": zod.number()
+}))
+}),
+  "rules": zod.array(zod.string()),
+  "message": zod.string(),
+  "effect": zod.enum(['none', 'complete', 'boss', 'reward'])
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */
