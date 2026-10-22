@@ -4,6 +4,8 @@ import {
   getGetHabitsQueryKey,
   getGetPixelQuestDashboardQueryKey,
   getGetTasksQueryKey,
+  getGetRewardsQueryKey,
+  getGetPixelQuestProfileQueryKey,
 } from '@workspace/api-client-react';
 
 export function localDateKey(date = new Date()): string {
@@ -27,6 +29,8 @@ export function isHabitScheduledToday(
 }
 
 export function invalidatePixelQuest(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: getGetRewardsQueryKey() });
+  void queryClient.invalidateQueries({ queryKey: getGetPixelQuestProfileQueryKey() });
   void queryClient.invalidateQueries({
     queryKey: getGetPixelQuestDashboardQueryKey(),
   });

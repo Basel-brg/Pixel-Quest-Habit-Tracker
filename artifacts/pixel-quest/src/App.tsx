@@ -1,10 +1,15 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
-import { Activity, Archive, ArrowUpRight, CalendarDays, Check, CheckCircle2, ChevronRight, Circle, Clock3, Flame, Flag, Gamepad2, Gift, History, Medal, Plus, RotateCcw, Shield, Sparkles, Swords, Volume2, VolumeX, X } from 'lucide-react';
+import { Link, Redirect, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
+import { ClerkLoading, ClerkProvider, Show, SignIn, SignUp, useClerk } from '@clerk/react';
+import { publishableKeyFromHost } from '@clerk/react/internal';
+import { dark } from '@clerk/themes';
+import { ui } from '@clerk/ui';
+import { Activity, Archive, ArrowUpRight, CalendarDays, Check, CheckCircle2, ChevronRight, Circle, Clock3, Flame, Flag, Gamepad2, Gift, LogOut, UserRound, History, Medal, Plus, RotateCcw, Shield, Sparkles, Swords, Volume2, VolumeX, X } from 'lucide-react';
 import type { Habit, QuestTask, TaskInput, HabitInput } from '@workspace/api-client-react';
 import {
   getGetAchievementsQueryKey, getGetHabitsQueryKey, getGetPixelQuestDashboardQueryKey, getGetTasksQueryKey,
+  getGetRewardsQueryKey, getGetPixelQuestProfileQueryKey,
   useCompleteHabit, useCompleteTask, useCreateHabit, useCreateTask, useDeleteTask, useGetAchievements,
   useGetHabits, useGetPixelQuestDashboard, useGetTasks, useUndoHabitCompletion, useUndoTaskCompletion,
   useUpdateHabit, useUpdateTask,
@@ -14,13 +19,48 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import RewardsPage from '@/pages/rewards';
+import ProfilePage from '@/pages/profile';
+import Landing from '@/pages/landing';
+import { dateKey } from '@/lib/date-key';
 
 const queryClient = new QueryClient();
+const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+function stripBase(path: string): string { return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || '/' : path; }
+if (!clerkPubKey) throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env file');
+const clerkAppearance = {
+  theme: dark, cssLayerName: 'clerk',
+  options: { logoPlacement: 'inside' as const, logoLinkUrl: basePath || '/', logoImageUrl: `${window.location.origin}${basePath}/logo.svg` },
+  variables: { colorPrimary: '#f5ca62', colorForeground: '#eee8da', colorMutedForeground: '#aaa4bb', colorDanger: '#ff9d8a', colorBackground: '#211f33', colorInput: '#191827', colorInputForeground: '#eee8da', colorNeutral: '#8f89a5', fontFamily: "'DM Sans', sans-serif", borderRadius: '0px' },
+  elements: {
+    rootBox: 'w-full flex justify-center',
+    cardBox: 'bg-[#211f33] border-2 border-[#514967] shadow-[4px_4px_0_#0e0d18] w-[440px] max-w-full overflow-hidden',
+    card: '!shadow-none !border-0 !bg-transparent !rounded-none', footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
+    headerTitle: { fontFamily: "'Press Start 2P', monospace", fontSize: '13px', color: '#f3e9cf', lineHeight: 1.6 },
+    headerSubtitle: { color: '#aaa4bb' }, socialButtonsBlockButtonText: { color: '#eee8da' }, formFieldLabel: { color: '#d6cfae' },
+    footerActionLink: { color: '#73e6df' }, footerActionText: { color: '#aaa4bb' }, dividerText: { color: '#aaa4bb' },
+    identityPreviewEditButton: { color: '#73e6df' }, formFieldSuccessText: { color: '#73e6df' }, alertText: { color: '#ffb8aa' },
+    formFieldErrorText: { color: '#ff9d8a' }, formButtonPrimary: { color: '#252138', fontWeight: 700 },
+    formFieldInput: { border: '1px solid #514967' }, logoImage: { imageRendering: 'pixelated' as const },
+  },
+};
+function SignInPage() { return <div className="scanlines flex min-h-[100dvh] items-center justify-center px-4"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}/></div>; }
+function SignUpPage() { return <div className="scanlines flex min-h-[100dvh] items-center justify-center px-4"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`}/></div>; }
+function CacheInvalidator() {
+  const { addListener } = useClerk(); const qc = useQueryClient(); const prev = useRef<string | null | undefined>(undefined);
+  useEffect(() => addListener(({ user }) => { const id = user?.id ?? null; if (prev.current !== undefined && prev.current !== id) { qc.clear(); sessionStorage.removeItem('pixelquest-reward-statuses'); } prev.current = id; }), [addListener, qc]);
+  return null;
+}
+function HomeRoute() { return <><ClerkLoading><Landing/></ClerkLoading><Show when="signed-in"><Redirect to="/camp"/></Show><Show when="signed-out"><Landing/></Show></>; }
+function Protected({ component: C }: { component: () => ReactNode }) { return <><ClerkLoading><div className="grid min-h-screen place-items-center font-mono text-sm text-[#73e6df]">Loading your save...</div></ClerkLoading><Show when="signed-in"><Shell><C/></Shell></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
 const today = () => new Date().toISOString().slice(0, 10);
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
 const dateLabel = (value: string) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const invalidateAll = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: getGetRewardsQueryKey() });
+  qc.invalidateQueries({ queryKey: getGetPixelQuestProfileQueryKey() });
   qc.invalidateQueries({ queryKey: getGetPixelQuestDashboardQueryKey() });
   qc.invalidateQueries({ queryKey: getGetHabitsQueryKey() });
   qc.invalidateQueries({ queryKey: getGetTasksQueryKey() });
@@ -61,29 +101,30 @@ function PixelHeading({ eyebrow, children, action }: {eyebrow?: string; children
 }
 function Shell({ children }: {children: ReactNode}) {
   const [path] = useLocation();
-  const audio = useChime();
-  const nav = [{ href: '/', label: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', icon: Activity }, { href: '/quests', label: 'Quest board', icon: Swords }, { href: '/rewards', label: 'Reward shop', icon: Gift }];
+  const audio = useChime(); const { signOut } = useClerk();
+  const nav = [{ href: '/camp', label: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', icon: Activity }, { href: '/quests', label: 'Quest board', icon: Swords }, { href: '/rewards', label: 'Reward shop', icon: Gift }, { href: '/profile', label: 'Profile', icon: UserRound }];
   return <div className="scanlines min-h-[100dvh] text-[#eee8da]">
     <div className="mx-auto flex min-h-[100dvh] max-w-[1440px]">
       <aside className="hidden w-[248px] shrink-0 border-r border-[#39354e] bg-[#171625]/75 px-5 py-7 md:flex md:flex-col">
-        <Link href="/" className="mb-12 flex items-center gap-3 text-inherit no-underline" data-testid="link-brand"><span className="grid h-11 w-11 place-items-center border-2 border-[#f5ca62] bg-[#302b46] text-[#f5ca62] shadow-[3px_3px_0_#0e0d18]"><Gamepad2 size={23}/></span><span><b className="pixel-title block text-[10px] text-[#f5ca62]">PIXEL QUEST</b><small className="mt-2 block text-xs text-[#8f89a5]">your life, leveled up</small></span></Link>
+        <Link href="/camp" className="mb-12 flex items-center gap-3 text-inherit no-underline" data-testid="link-brand"><span className="grid h-11 w-11 place-items-center border-2 border-[#f5ca62] bg-[#302b46] text-[#f5ca62] shadow-[3px_3px_0_#0e0d18]"><Gamepad2 size={23}/></span><span><b className="pixel-title block text-[10px] text-[#f5ca62]">PIXEL QUEST</b><small className="mt-2 block text-xs text-[#8f89a5]">your life, leveled up</small></span></Link>
         <p className="mb-3 px-2 font-mono text-[9px] uppercase tracking-[.2em] text-[#77718d]">Your journal</p>
         <nav className="space-y-2">{nav.map(({href,label,icon:Icon}) => <Link href={href} key={href} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex items-center gap-3 border-2 px-3 py-3 text-sm font-semibold no-underline transition-colors', path === href ? 'border-[#f5ca62]/55 bg-[#2c293d] text-[#f5ca62]' : 'border-transparent text-[#aca6bd] hover:bg-[#242236] hover:text-[#eee8da]')}><Icon size={17}/>{label}{path===href&&<ChevronRight size={15} className="ml-auto"/>}</Link>)}</nav>
         <div className="mt-auto border-t border-[#39354e] pt-5">
           <div className="mb-4 flex items-center gap-2 text-xs text-[#aaa4bb]"><span className="h-2 w-2 bg-[#73e6df] shadow-[0_0_10px_#73e6df]"/> SAVE POINT ACTIVE</div>
+          <button data-testid="button-logout" onClick={()=>void signOut({redirectUrl:basePath||'/'})} className="mb-2 flex w-full items-center gap-3 border border-[#39354e] px-3 py-3 text-left text-sm text-[#b9b3c8] hover:bg-[#242236]"><LogOut size={17}/>Log out</button>
           <button data-testid="button-toggle-audio" onClick={audio.toggle} className="flex w-full items-center gap-3 border border-[#39354e] px-3 py-3 text-left text-sm text-[#b9b3c8] hover:bg-[#242236]">{audio.muted?<VolumeX size={17}/>:<Volume2 size={17}/>}Sound {audio.muted?'off':'on'}<span className="ml-auto text-[10px] text-[#7f7995]">{audio.muted?'MUTED':'ON'}</span></button>
         </div>
       </aside>
       <main className="min-w-0 flex-1 pb-24 md:pb-8">
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[#39354e] bg-[#1b1930]/95 px-4 py-3 backdrop-blur-md md:px-8">
           <div className="flex items-center gap-3 md:hidden"><Gamepad2 size={22} className="text-[#f5ca62]"/><span className="pixel-title text-[9px] text-[#f5ca62]">PIXEL QUEST</span></div>
-          <p className="hidden text-xs text-[#8d87a3] md:block">PLAYER JOURNAL <span className="mx-2 text-[#4d4861]">/</span> {path === '/' ? 'TODAY' : path.slice(1).toUpperCase()}</p>
-          <div className="flex items-center gap-3"><span className="hidden text-xs text-[#aaa4bb] sm:block">{new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</span><button data-testid="button-toggle-audio-mobile" onClick={audio.toggle} className="grid h-9 w-9 place-items-center border border-[#454058] text-[#aaa4bb] hover:text-[#f5ca62] md:hidden" aria-label={audio.muted?'Turn sound on':'Mute sound'}>{audio.muted?<VolumeX size={17}/>:<Volume2 size={17}/>}</button></div>
+          <p className="hidden text-xs text-[#8d87a3] md:block">PLAYER JOURNAL <span className="mx-2 text-[#4d4861]">/</span> {path === '/camp' ? 'TODAY' : path.slice(1).toUpperCase()}</p>
+          <div className="flex items-center gap-3"><span className="hidden text-xs text-[#aaa4bb] sm:block">{new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</span><button data-testid="button-logout-mobile" onClick={()=>void signOut({redirectUrl:basePath||'/'})} className="grid h-9 w-9 place-items-center border border-[#454058] text-[#aaa4bb] hover:text-[#f5ca62] md:hidden" aria-label="Log out"><LogOut size={17}/></button><button data-testid="button-toggle-audio-mobile" onClick={audio.toggle} className="grid h-9 w-9 place-items-center border border-[#454058] text-[#aaa4bb] hover:text-[#f5ca62] md:hidden" aria-label={audio.muted?'Turn sound on':'Mute sound'}>{audio.muted?<VolumeX size={17}/>:<Volume2 size={17}/>}</button></div>
         </header>
         <div className="mx-auto max-w-[1160px] px-4 py-7 md:px-8 md:py-9">{children}</div>
       </main>
     </div>
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#48435d] bg-[#171625]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">{nav.map(({href,label,icon:Icon})=><Link href={href} key={href} data-testid={`mobile-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex flex-col items-center gap-1.5 py-3 text-[10px] font-semibold no-underline',path===href?'text-[#f5ca62]':'text-[#938da6]')}><Icon size={19}/>{label}</Link>)}</nav>
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#48435d] bg-[#171625]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">{nav.map(({href,label,icon:Icon})=><Link href={href} key={href} data-testid={`mobile-nav-${label.toLowerCase().replaceAll(' ','-')}`} className={cx('flex flex-col items-center gap-1.5 py-3 text-[9px] font-semibold no-underline',path===href?'text-[#f5ca62]':'text-[#938da6]')}><Icon size={19}/>{label}</Link>)}</nav>
   </div>;
 }
 function LoadingState() { return <div className="space-y-4" aria-label="Loading"><div className="h-32 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="grid gap-4 md:grid-cols-2"><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/><div className="h-48 animate-pulse border-2 border-[#39354e] bg-[#211f33]"/></div></div>; }
@@ -100,7 +141,7 @@ function LevelBar({profile}:{profile:{level:number;xpIntoLevel:number;xpToNextLe
   </Panel>;
 }
 function HabitLine({habit, onToggle, loading}:{habit:Habit;onToggle:()=>void;loading:boolean}) {
-  const done=habit.completedDates.includes(today());
+  const done=habit.completedDates.some(value=>dateKey(value)===today());
   return <div data-testid={`habit-row-${habit.id}`} className={cx('flex items-center gap-3 border-b border-[#39354e] py-3.5 last:border-0',done&&'opacity-70')}>
     <button data-testid={`button-complete-habit-${habit.id}`} disabled={loading} onClick={onToggle} aria-label={`${done?'Undo':'Complete'} ${habit.title}`} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2 transition-all',done?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#666078] text-transparent hover:border-[#73e6df] hover:text-[#73e6df]')}>{done?<Check size={17}/>:<Circle size={17}/>}</button>
     <div className="min-w-0 flex-1"><p className={cx('truncate text-sm font-semibold',done&&'text-[#aaa4bb] line-through')}>{habit.title}</p><p className="mt-1 text-[11px] text-[#89829b]">{habit.category} <span className="px-1 text-[#514967]">/</span> {habit.frequency}</p></div><span className="hidden border border-[#464158] px-2 py-1 font-mono text-[8px] uppercase text-[#a59eb6] sm:block">{habit.frequency==='daily'?'DAILY':`${habit.days.length} DAYS`}</span>
@@ -110,10 +151,10 @@ function DashboardPage() {
   const qc=useQueryClient(); const {data:dashboard,isLoading,isError,refetch}=useGetPixelQuestDashboard(); const {data:habits=[]}=useGetHabits({archived:false}); const {data:tasks=[]}=useGetTasks({status:'active'}); const {data:achievements=[]}=useGetAchievements();
   const completeHabit=useCompleteHabit(); const undoHabit=useUndoHabitCompletion(); const completeTask=useCompleteTask(); const undoTask=useUndoTaskCompletion(); const audio=useChime();
   const [levelFlash,setLevelFlash]=useState(false);
-  const toggleHabit=(habit:Habit)=>{const done=habit.completedDates.includes(today());(done?undoHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:()=>invalidateAll(qc)}):completeHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:(result)=>{invalidateAll(qc);audio.chime();if(result.leveledUp){setLevelFlash(true);window.setTimeout(()=>setLevelFlash(false),1600)}}}));};
+  const toggleHabit=(habit:Habit)=>{const done=habit.completedDates.some(value=>dateKey(value)===today());(done?undoHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:()=>invalidateAll(qc)}):completeHabit.mutate({habitId:habit.id,data:{date:today()}},{onSuccess:(result)=>{invalidateAll(qc);audio.chime();if(result.leveledUp){setLevelFlash(true);window.setTimeout(()=>setLevelFlash(false),1600)}}}));};
   const toggleTask=(task:QuestTask)=>{(task.status==='completed'?undoTask.mutate({taskId:task.id},{onSuccess:()=>invalidateAll(qc)}):completeTask.mutate({taskId:task.id},{onSuccess:(result)=>{invalidateAll(qc);audio.chime();if(result.leveledUp){setLevelFlash(true);window.setTimeout(()=>setLevelFlash(false),1600)}}}));};
   if(isLoading)return <LoadingState/>; if(isError||!dashboard)return <ErrorState retry={()=>void refetch()}/>;
-    const completed=habits.filter(h=>h.completedDates.includes(today())).length+dashboard.completedTasks;
+    const completed=habits.filter(h=>h.completedDates.some(value=>dateKey(value)===today())).length+dashboard.completedTasks;
   const total=habits.length+tasks.length+dashboard.completedTasks;
   const completionPct=Math.round(dashboard.completionRate<=1?dashboard.completionRate*100:dashboard.completionRate);
   return <div className="space-y-6">
@@ -153,7 +194,7 @@ function HabitPage() {
   </div>;
 }
 function HabitCard({habit,archived,onEdit,onArchive,onComplete}:{habit:Habit;archived:boolean;onEdit:()=>void;onArchive:()=>void;onComplete:(date:string,done:boolean)=>void}) {
-  const doneDates=new Set(habit.completedDates); const now=new Date(); const days=Array.from({length:30},(_,i)=>{const date=new Date(now);date.setDate(now.getDate()-(29-i));return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`});
+  const doneDates=new Set(habit.completedDates.map(dateKey)); const now=new Date(); const days=Array.from({length:30},(_,i)=>{const date=new Date(now);date.setDate(now.getDate()-(29-i));return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`});
   const todayDone=doneDates.has(today());
   return <article data-testid={`card-habit-${habit.id}`} className="border border-[#49445d] bg-[#1c1a2b] p-4"><div className="flex items-start gap-3"><button disabled={archived} data-testid={`button-habit-check-${habit.id}`} onClick={()=>onComplete(today(),todayDone)} className={cx('mt-0.5 grid h-7 w-7 shrink-0 place-items-center border-2',todayDone?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#625b73] text-transparent hover:border-[#73e6df] hover:text-[#73e6df]')} aria-label={todayDone?'Undo today':'Complete today'}>{todayDone?<Check size={15}/>:<CheckCircle2 size={15}/>}</button><div className="min-w-0 flex-1"><h3 className={cx('truncate text-sm font-bold',todayDone&&'text-[#aaa4bb]')}>{habit.title}</h3><p className="mt-1 text-[11px] text-[#8e879e]">{habit.category} · {habit.frequency==='daily'?'Every day':habit.days.map(d=>weekDays[d]).join(', ')}</p></div><button data-testid={`button-edit-habit-${habit.id}`} onClick={onEdit} className="border border-[#514967] px-2.5 py-1.5 text-[10px] font-bold text-[#b8b0c8] hover:text-[#f5ca62]">Edit</button><button data-testid={`button-archive-habit-${habit.id}`} onClick={onArchive} className="grid h-8 w-8 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83]" title={archived?'Restore habit':'Archive habit'} aria-label={archived?'Restore habit':'Archive habit'}>{archived?<RotateCcw size={14}/>:<Archive size={14}/>}</button></div><div className="mt-4 border-t border-[#39354e] pt-3"><div className="mb-2 flex items-center justify-between"><span className="font-mono text-[8px] uppercase tracking-[.16em] text-[#827b94]">Last 30 days</span><span className="text-[10px] text-[#9690a5]">{habit.completedDates.length} total clears</span></div><div className="grid grid-cols-10 gap-1.5" style={{gridTemplateColumns:'repeat(10,minmax(0,1fr))'}}>{days.map((d,i)=><button key={d} data-testid={`history-day-${habit.id}-${i}`} onClick={()=>onComplete(d,doneDates.has(d))} title={`${dateLabel(d)} ${doneDates.has(d)?'completed':'not completed'}`} className={cx('aspect-square min-h-[16px] border',doneDates.has(d)?'border-[#73e6df] bg-[#73e6df] shadow-[0_0_8px_#73e6df33]':'border-[#49445d] bg-[#262337] hover:border-[#9a92ab]')}/>)}</div><div className="mt-1 grid grid-cols-10 text-center text-[8px] text-[#726c84]" style={{gridTemplateColumns:'repeat(10,minmax(0,1fr))'}}>{days.map((d,i)=><span key={d}>{i%5===0?new Date(`${d}T12:00:00`).getDate():''}</span>)}</div></div></article>;
 }
@@ -179,10 +220,15 @@ function QuestRow({task,onToggle,onEdit,onDelete,busy}:{task:QuestTask;onToggle:
   return <article data-testid={`quest-card-${task.id}`} className="flex flex-wrap items-center gap-3 py-4 sm:flex-nowrap"><button data-testid={`button-toggle-quest-${task.id}`} disabled={busy} onClick={onToggle} aria-label={completed?'Reopen quest':'Complete quest'} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2',completed?'border-[#73e6df] bg-[#73e6df] text-[#202335]':'border-[#625b73] text-[#625b73] hover:border-[#73e6df] hover:text-[#73e6df]')}>{completed?<Check size={16}/>:<Circle size={16}/>}</button><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className={cx('text-sm font-bold',completed&&'text-[#8e879e] line-through')}>{task.title}</h3>{task.priority&&<span className="border border-[#776544] px-1.5 py-0.5 font-mono text-[8px] text-[#f5ca62]">PRIORITY</span>}</div><p className="mt-1.5 text-[11px] text-[#8e879e]">{task.category}{task.dueDate&&<><span className="px-1.5">·</span><Clock3 size={11} className="mr-1 inline"/>Due {dateLabel(task.dueDate)}</>}</p></div><span className={cx('min-w-[60px] border px-2 py-1 text-center font-mono text-[8px] uppercase',task.difficulty==='hard'?'border-[#7b4d4e] text-[#f29b83]':task.difficulty==='medium'?'border-[#766541] text-[#f5ca62]':'border-[#466967] text-[#73e6df]')}>{task.difficulty}</span><div className="flex items-center gap-1"><button data-testid={`button-edit-quest-${task.id}`} onClick={onEdit} className="border border-[#514967] px-2.5 py-2 text-[10px] font-bold text-[#aaa4bb] hover:text-[#f5ca62]">Edit</button><button data-testid={`button-delete-quest-${task.id}`} onClick={onDelete} aria-label={`Delete ${task.title}`} className="grid h-8 w-8 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83]"><X size={14}/></button></div></article>;
 }
 function Router() {
-  const [location]=useLocation();
-  return <ErrorBoundary resetKey={location}><Shell><Switch><Route path="/" component={DashboardPage}/><Route path="/habits" component={HabitPage}/><Route path="/quests" component={QuestPage}/><Route path="/rewards" component={RewardsPage}/><Route component={NotFound}/></Switch></Shell></ErrorBoundary>;
+  const [location, setLocation]=useLocation();
+  return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} ui={ui} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} localization={{signIn:{start:{title:'Continue your save',subtitle:'Sign in to your Pixel Quest account'}},signUp:{start:{title:'Begin your quest',subtitle:'Create your own adventurer account'}}}} routerPush={(to)=>setLocation(stripBase(to))} routerReplace={(to)=>setLocation(stripBase(to),{replace:true})}>
+    <QueryClientProvider client={queryClient}><CacheInvalidator/><TooltipProvider><ErrorBoundary resetKey={location}><Switch>
+      <Route path="/" component={HomeRoute}/><Route path="/sign-in/*?" component={SignInPage}/><Route path="/sign-up/*?" component={SignUpPage}/>
+      <Route path="/camp">{()=><Protected component={DashboardPage}/>}</Route><Route path="/habits">{()=><Protected component={HabitPage}/>}</Route><Route path="/quests">{()=><Protected component={QuestPage}/>}</Route><Route path="/rewards">{()=><Protected component={RewardsPage}/>}</Route><Route path="/profile">{()=><Protected component={ProfilePage}/>}</Route>
+      <Route component={NotFound}/></Switch></ErrorBoundary><Toaster/></TooltipProvider></QueryClientProvider>
+  </ClerkProvider>;
 }
 function App() {
-  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/,'')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;
+  return <WouterRouter base={basePath}><Router/></WouterRouter>;
 }
 export default App;

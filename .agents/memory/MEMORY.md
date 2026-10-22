@@ -1,0 +1,2 @@
+- [Account ownership migration](account-ownership.md) — pre-auth shared records stay preserved and unassigned; never give them to the first account that signs in.
+- [Auth UI bundling](auth-readiness.md) — bundle Clerk UI explicitly; disabling UI preload allows sessions but breaks built-in sign-in forms.

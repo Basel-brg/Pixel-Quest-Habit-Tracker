@@ -31,6 +31,8 @@ import type {
   HabitInput,
   HabitUpdate,
   HealthStatus,
+  PlayerProfileDetails,
+  PlayerProfileUpdate,
   QuestTask,
   Reward,
   RewardInput,
@@ -220,6 +222,171 @@ export function useGetPixelQuestDashboard<TData = Awaited<ReturnType<typeof getP
 
 
 
+
+export const getGetPixelQuestProfileUrl = () => {
+
+
+
+
+  return `/api/pixelquest/profile`
+}
+
+/**
+ * @summary Get account profile and milestone history
+ */
+export const getPixelQuestProfile = async ( options?: Parameters<typeof customFetch>[1]): Promise<PlayerProfileDetails> => {
+
+  return customFetch<PlayerProfileDetails>(getGetPixelQuestProfileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPixelQuestProfileQueryKey = () => {
+    return [
+    `/api/pixelquest/profile`
+    ] as const;
+    }
+
+
+export const getGetPixelQuestProfileQueryOptions = <TData = Awaited<ReturnType<typeof getPixelQuestProfile>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPixelQuestProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPixelQuestProfileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPixelQuestProfile>>> = ({ signal }) => getPixelQuestProfile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPixelQuestProfile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPixelQuestProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getPixelQuestProfile>>>
+export type GetPixelQuestProfileQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get account profile and milestone history
+ */
+
+export function useGetPixelQuestProfile<TData = Awaited<ReturnType<typeof getPixelQuestProfile>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPixelQuestProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPixelQuestProfileQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePixelQuestProfileUrl = () => {
+
+
+
+
+  return `/api/pixelquest/profile`
+}
+
+/**
+ * @summary Update username or selected unlocked avatar
+ */
+export const updatePixelQuestProfile = async (playerProfileUpdate: PlayerProfileUpdate, options?: Parameters<typeof customFetch>[1]): Promise<PlayerProfileDetails> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PlayerProfileDetails>(getUpdatePixelQuestProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(playerProfileUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdatePixelQuestProfileMutationKey = () => ['updatePixelQuestProfile'] as const;
+
+export const getUpdatePixelQuestProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePixelQuestProfile>>, TError,UpdatePixelQuestProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePixelQuestProfile>>, TError,UpdatePixelQuestProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePixelQuestProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePixelQuestProfile>>, UpdatePixelQuestProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePixelQuestProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePixelQuestProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updatePixelQuestProfile>>>
+    export type UpdatePixelQuestProfileMutationBody = BodyType<PlayerProfileUpdate>
+    export type UpdatePixelQuestProfileMutationError = ErrorType<void>
+    export type UpdatePixelQuestProfileMutationVariables = {data: BodyType<PlayerProfileUpdate>}
+
+    /**
+ * @summary Update username or selected unlocked avatar
+ */
+export const useUpdatePixelQuestProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePixelQuestProfile>>, TError,UpdatePixelQuestProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePixelQuestProfile>>,
+        TError,
+        UpdatePixelQuestProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePixelQuestProfileMutationOptions(options));
+    }
 
 export const getGetHabitsUrl = (params?: GetHabitsParams,) => {
   const normalizedParams = new URLSearchParams();

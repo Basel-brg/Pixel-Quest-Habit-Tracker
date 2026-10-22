@@ -44,6 +44,86 @@ export const GetPixelQuestDashboardResponse = zod.object({
 
 
 /**
+ * @summary Get account profile and milestone history
+ */
+export const GetPixelQuestProfileResponse = zod.object({
+  "username": zod.string(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "level": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "lifetimeTasksVanquished": zod.number().int(),
+  "highestHabitStreak": zod.number().int(),
+  "habitStreaks": zod.array(zod.object({
+  "habitId": zod.number().int(),
+  "habitTitle": zod.string(),
+  "currentStreak": zod.number().int(),
+  "highestStreak": zod.number().int()
+})),
+  "avatars": zod.array(zod.object({
+  "id": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "name": zod.string(),
+  "role": zod.string(),
+  "description": zod.string(),
+  "requiredLevel": zod.number().int(),
+  "unlocked": zod.boolean()
+})),
+  "milestones": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "achievedAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Update username or selected unlocked avatar
+ */
+export const updatePixelQuestProfileBodyUsernameMin = 3;
+export const updatePixelQuestProfileBodyUsernameMax = 20;
+
+
+export const updatePixelQuestProfileBodyUsernameRegExp = new RegExp('^[A-Za-z0-9_]{3,20}$');
+
+
+export const UpdatePixelQuestProfileBody = zod.object({
+  "username": zod.string().min(updatePixelQuestProfileBodyUsernameMin).max(updatePixelQuestProfileBodyUsernameMax).regex(updatePixelQuestProfileBodyUsernameRegExp).optional(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional()
+})
+
+export const UpdatePixelQuestProfileResponse = zod.object({
+  "username": zod.string(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "level": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "lifetimeTasksVanquished": zod.number().int(),
+  "highestHabitStreak": zod.number().int(),
+  "habitStreaks": zod.array(zod.object({
+  "habitId": zod.number().int(),
+  "habitTitle": zod.string(),
+  "currentStreak": zod.number().int(),
+  "highestStreak": zod.number().int()
+})),
+  "avatars": zod.array(zod.object({
+  "id": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "name": zod.string(),
+  "role": zod.string(),
+  "description": zod.string(),
+  "requiredLevel": zod.number().int(),
+  "unlocked": zod.boolean()
+})),
+  "milestones": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "achievedAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary List habits and recent completion dates
  */
 export const GetHabitsQueryParams = zod.object({

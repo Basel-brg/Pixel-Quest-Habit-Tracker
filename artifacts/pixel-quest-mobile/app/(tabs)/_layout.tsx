@@ -7,6 +7,9 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
+import { useAuth } from '@clerk/expo';
+import { Redirect } from 'expo-router';
+import { LoadingState } from '@/components/PixelUI';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 // NativeTabs intentionally does NOT use custom design tokens — liquid glass
@@ -26,6 +29,14 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="quests">
         <NativeTabs.Trigger.Icon sf={{ default: 'flag', selected: 'flag.fill' }} />
         <NativeTabs.Trigger.Label>Quests</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="rewards">
+        <NativeTabs.Trigger.Icon sf={{ default: 'gift', selected: 'gift.fill' }} />
+        <NativeTabs.Trigger.Label>Rewards</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -73,6 +84,8 @@ function ClassicTabLayout() {
         { name: 'index', title: 'Today', icon: 'home', symbol: 'house' },
         { name: 'habits', title: 'Habits', icon: 'check-square', symbol: 'checkmark.circle' },
         { name: 'quests', title: 'Quests', icon: 'flag', symbol: 'flag' },
+        { name: 'rewards', title: 'Rewards', icon: 'gift', symbol: 'gift' },
+        { name: 'profile', title: 'Profile', icon: 'user', symbol: 'person.crop.circle' },
       ] as const).map((tab) => (
         <Tabs.Screen
           key={tab.name}
@@ -84,7 +97,7 @@ function ClassicTabLayout() {
                 <SymbolView name={tab.symbol} tintColor={color} size={22} />
               ) : (
                 <Feather
-                  name={tab.icon as 'home' | 'check-square' | 'flag'}
+                  name={tab.icon}
                   size={21}
                   color={color}
                 />
@@ -97,6 +110,9 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return <LoadingState label="Loading your save..." />;
+  if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }

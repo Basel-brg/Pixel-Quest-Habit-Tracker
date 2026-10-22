@@ -38,6 +38,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Dashboard"
+  /pixelquest/profile:
+    get:
+      operationId: getPixelQuestProfile
+      tags: [pixel-quest]
+      summary: Get account profile and milestone history
+      responses:
+        "200":
+          description: Player profile settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerProfileDetails"
+    patch:
+      operationId: updatePixelQuestProfile
+      tags: [pixel-quest]
+      summary: Update username or selected unlocked avatar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerProfileUpdate"
+      responses:
+        "200":
+          description: Updated player profile settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerProfileDetails"
+        "400":
+          description: Invalid profile update
+        "409":
+          description: Username is taken or avatar is locked
   /pixelquest/habits:
     get:
       operationId: getHabits
@@ -482,6 +515,64 @@ components:
         xpToNextLevel: { type: integer }
         streak: { type: integer }
         title: { type: string }
+    AvatarId:
+      type: string
+      enum: [novice, squire, knight, paladin]
+    AvatarOption:
+      type: object
+      required: [id, name, role, description, requiredLevel, unlocked]
+      properties:
+        id: { $ref: "#/components/schemas/AvatarId" }
+        name: { type: string }
+        role: { type: string }
+        description: { type: string }
+        requiredLevel: { type: integer }
+        unlocked: { type: boolean }
+    HabitStreakSummary:
+      type: object
+      required: [habitId, habitTitle, currentStreak, highestStreak]
+      properties:
+        habitId: { type: integer }
+        habitTitle: { type: string }
+        currentStreak: { type: integer }
+        highestStreak: { type: integer }
+    PlayerMilestone:
+      type: object
+      required: [id, title, description, achievedAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        achievedAt: { type: string, format: date-time }
+    PlayerProfileDetails:
+      type: object
+      required: [username, avatarId, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones]
+      properties:
+        username: { type: string }
+        avatarId: { $ref: "#/components/schemas/AvatarId" }
+        level: { type: integer }
+        xp: { type: integer }
+        gold: { type: integer }
+        lifetimeTasksVanquished: { type: integer }
+        highestHabitStreak: { type: integer }
+        habitStreaks:
+          type: array
+          items: { $ref: "#/components/schemas/HabitStreakSummary" }
+        avatars:
+          type: array
+          items: { $ref: "#/components/schemas/AvatarOption" }
+        milestones:
+          type: array
+          items: { $ref: "#/components/schemas/PlayerMilestone" }
+    PlayerProfileUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 20
+          pattern: "^[A-Za-z0-9_]{3,20}$"
+        avatarId: { $ref: "#/components/schemas/AvatarId" }
     Achievement:
       type: object
       required: [id, name, description, unlocked]

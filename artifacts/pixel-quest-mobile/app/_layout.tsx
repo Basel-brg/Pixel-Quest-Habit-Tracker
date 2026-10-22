@@ -1,4 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
+import { ActivityIndicator, View, Text } from 'react-native';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -11,7 +14,7 @@ import {
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
 import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
-import { setBaseUrl } from '@workspace/api-client-react';
+import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import {
   StatusBar,
 } from 'expo-status-bar';
@@ -29,9 +32,18 @@ const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
 setBaseUrl(apiDomain ? `https://${apiDomain}` : null);
 
 function RootLayoutNav() {
+  const { userId, getToken } = useAuth();
+  const previous = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    if (previous.current !== undefined && previous.current !== userId) queryClient.clear();
+    previous.current = userId;
+    return () => setAuthTokenGetter(null);
+  }, [userId, getToken]);
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -54,10 +66,13 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
+    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!} tokenCache={tokenCache} proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}>
+      <ClerkLoading><View style={{flex:1,backgroundColor:'#161727',alignItems:'center',justifyContent:'center',gap:16}}><ActivityIndicator color="#73e5e6"/><Text style={{color:'#f2ead8'}}>Loading your save...</Text></View></ClerkLoading>
+      <ClerkLoaded>
+      <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView>
+          <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <StatusBar style="light" />
               <RootLayoutNav />
@@ -66,5 +81,7 @@ export default function RootLayout() {
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

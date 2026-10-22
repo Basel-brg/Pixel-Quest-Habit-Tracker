@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import { Archive, BadgeCheck, CircleDollarSign, Clock3, Gift, LockKeyhole, Plus, Sparkles, Trophy, X } from 'lucide-react';
+import { Form } from '@/components/ui/form';
 import type { Habit, Reward, RewardInput, RewardUpdate } from '@workspace/api-client-react';
 import {
   getGetHabitsQueryKey, getGetPixelQuestDashboardQueryKey, getGetRewardsQueryKey,
+  getGetPixelQuestProfileQueryKey,
   useClaimReward, useCreateReward, useDeleteReward, useGetHabits, useGetPixelQuestDashboard,
   useGetRewards, useUpdateReward,
 } from '@workspace/api-client-react';
@@ -13,6 +15,7 @@ type FormValues = RewardInput;
 const emptyForm: FormValues = { title: '', description: '', category: 'Personal', ruleType: 'gold', target: 100, habitId: null };
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
 const invalidateRewards = (qc: ReturnType<typeof useQueryClient>) => {
+  void qc.invalidateQueries({ queryKey: getGetPixelQuestProfileQueryKey() });
   void qc.invalidateQueries({ queryKey: getGetRewardsQueryKey() });
   void qc.invalidateQueries({ queryKey: getGetPixelQuestDashboardQueryKey() });
   void qc.invalidateQueries({ queryKey: getGetHabitsQueryKey() });
@@ -88,7 +91,7 @@ function RewardCard({ reward, gold, onEdit, onDelete, onClaim, busy }: {
       </>}
       <div className="mt-4 flex items-center gap-2">
         {reward.status==='ready'&&!isClaimed&&<button data-testid={`button-claim-reward-${reward.id}`} disabled={busy} onClick={onClaim} className="pixel-button inline-flex flex-1 items-center justify-center gap-2 border-2 border-black/20 bg-[#f5ca62] px-3 py-2.5 text-xs font-bold text-[#252138] disabled:opacity-40"><Gift size={14}/>{busy?'Claiming...':'Claim reward'}</button>}
-        {!isClaimed&&<><button data-testid={`button-edit-reward-${reward.id}`} onClick={onEdit} className="border border-[#514967] px-3 py-2 text-[10px] font-bold text-[#aaa4bb] hover:text-[#f5ca62]">Edit</button><button data-testid={`button-delete-reward-${reward.id}`} onClick={onDelete} aria-label={`Delete ${reward.title}`} className="grid h-9 w-9 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83]"><X size={14}/></button></>}
+        {!isClaimed&&<><button data-testid={`button-edit-reward-${reward.id}`} disabled={busy} onClick={onEdit} className="border border-[#514967] px-3 py-2 text-[10px] font-bold text-[#aaa4bb] hover:text-[#f5ca62] disabled:opacity-40">Edit</button><button data-testid={`button-delete-reward-${reward.id}`} disabled={busy} onClick={onDelete} aria-label={`Delete ${reward.title}`} className="grid h-9 w-9 place-items-center border border-[#514967] text-[#8f89a2] hover:border-[#f29b83] hover:text-[#f29b83] disabled:opacity-40"><X size={14}/></button></>}
       </div>
     </div>
   </article>;
@@ -101,21 +104,26 @@ export default function RewardsPage() {
   const create = useCreateReward(); const update = useUpdateReward(); const remove = useDeleteReward(); const claim = useClaimReward();
   const [editing, setEditing] = useState<Reward | null | undefined>(undefined);
   const [celebration, setCelebration] = useState(false);
-  const previous = useRef<Map<number, Reward['status']> | null>(null);
+  const previous = useRef<Map<number, Reward['status']> | null>((() => {
+    try { const stored = sessionStorage.getItem('pixelquest-reward-statuses'); return stored ? new Map(JSON.parse(stored)) : null; }
+    catch { return null; }
+  })());
   useEffect(() => {
-    if (isLoading || isError) return;
-    const current = new Map(rewards.map(reward => [reward.id, reward.status]));
-    if (previous.current) {
-      const unlocked = rewards.some(reward => reward.status === 'ready' && previous.current?.get(reward.id) === 'locked');
-      if (unlocked) {
-        setCelebration(true);
-        chime();
-        const timer = window.setTimeout(() => setCelebration(false), 1500);
-        previous.current = current;
-        return () => window.clearTimeout(timer);
+    let timer: number | undefined;
+    if (!isLoading && !isError) {
+      const current = new Map(rewards.map(reward => [reward.id, reward.status]));
+      if (previous.current) {
+        const unlocked = rewards.some(reward => reward.status === 'ready' && previous.current?.get(reward.id) === 'locked');
+        if (unlocked) {
+          setCelebration(true);
+          chime();
+          timer = window.setTimeout(() => setCelebration(false), 1500);
+        }
       }
+      previous.current = current;
+      sessionStorage.setItem('pixelquest-reward-statuses', JSON.stringify([...current]));
     }
-    previous.current = current;
+    return () => { if (timer !== undefined) window.clearTimeout(timer); };
   }, [rewards, isLoading, isError]);
   const closeEditor = () => setEditing(undefined);
   const save = (data: RewardInput) => {
@@ -136,7 +144,7 @@ export default function RewardsPage() {
     </div>
     {celebration&&<div data-testid="reward-unlock-celebration" aria-live="polite" className="pointer-events-none fixed inset-0 z-40 overflow-hidden"><div className="absolute left-1/2 top-[21%] -translate-x-1/2 border-2 border-[#f5ca62] bg-[#211f33] px-5 py-4 text-center shadow-[5px_5px_0_#0e0d18]"><Sparkles className="mx-auto mb-2 text-[#f5ca62]"/><p className="pixel-title text-[9px] text-[#f5ca62]">CHEST UNLOCKED</p><p className="mt-2 font-mono text-[8px] text-[#73e6df]">A NEW REWARD IS READY</p></div>{!window.matchMedia('(prefers-reduced-motion: reduce)').matches&&Array.from({length:30},(_,i)=><i key={i} className="pixel-spark absolute h-2 w-2" style={{left:`${(i*31)%98}%`,top:`${(i*17)%74}%`,background:['#f5ca62','#73e6df','#b497f7','#f29b83'][i%4],animationDelay:`${i*12}ms`}}/>)}</div>}
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.18em] text-[#73e6df]">Your next real-world win</p><h2 className="pixel-title text-[11px] text-[#f3e9cf]">Open quests</h2></div><button data-testid="button-add-reward" onClick={()=>setEditing(null)} className="pixel-button inline-flex items-center gap-2 border-2 border-black/20 bg-[#f5ca62] px-4 py-2.5 text-sm font-bold text-[#252138]"><Plus size={16}/> Add reward</button></div>
-    {active.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{active.map(reward=><RewardCard key={reward.id} reward={reward} gold={gold} busy={claim.isPending&&claim.variables?.rewardId===reward.id} onEdit={()=>setEditing(reward)} onDelete={()=>{if(window.confirm(`Remove "${reward.title}" from your reward shop?`))remove.mutate({rewardId:reward.id},{onSuccess:()=>invalidateRewards(qc)});}} onClaim={()=>claim.mutate({rewardId:reward.id},{onSuccess:()=>invalidateRewards(qc)})}/>)}</div> : <Panel className="py-10 text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center border-2 border-[#786844] bg-[#302b3a] text-[#f5ca62]"><Gift size={21}/></div><h3 className="pixel-title text-[9px] text-[#e8dfcb]">YOUR CHEST IS EMPTY</h3><p className="mx-auto mt-3 max-w-sm text-sm text-[#928ba4]">Add a reward you genuinely look forward to. Your habits will help unlock it.</p><button data-testid="button-empty-add-reward" onClick={()=>setEditing(null)} className="mt-5 inline-flex items-center gap-2 border border-[#806b42] px-4 py-2.5 text-xs font-bold text-[#f5ca62] hover:bg-[#383244]"><Plus size={14}/> Create your first reward</button></Panel>}
+    {active.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{active.map(reward=><RewardCard key={reward.id} reward={reward} gold={gold} busy={(claim.isPending&&claim.variables?.rewardId===reward.id)||(remove.isPending&&remove.variables?.rewardId===reward.id)} onEdit={()=>setEditing(reward)} onDelete={()=>{if(window.confirm(`Remove "${reward.title}" from your reward shop?`))remove.mutate({rewardId:reward.id},{onSuccess:()=>invalidateRewards(qc)});}} onClaim={()=>claim.mutate({rewardId:reward.id},{onSuccess:()=>invalidateRewards(qc)})}/>)}</div> : <Panel className="py-10 text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center border-2 border-[#786844] bg-[#302b3a] text-[#f5ca62]"><Gift size={21}/></div><h3 className="pixel-title text-[9px] text-[#e8dfcb]">YOUR CHEST IS EMPTY</h3><p className="mx-auto mt-3 max-w-sm text-sm text-[#928ba4]">Add a reward you genuinely look forward to. Your habits will help unlock it.</p><button data-testid="button-empty-add-reward" onClick={()=>setEditing(null)} className="mt-5 inline-flex items-center gap-2 border border-[#806b42] px-4 py-2.5 text-xs font-bold text-[#f5ca62] hover:bg-[#383244]"><Plus size={14}/> Create your first reward</button></Panel>}
     <Panel><div className="mb-5 flex items-end justify-between gap-3"><div><p className="mb-2 font-mono text-[9px] uppercase tracking-[.18em] text-[#73e6df]">Earned and remembered</p><h2 className="pixel-title text-[10px] text-[#f3e9cf]">Trophy archive</h2></div><span className="flex items-center gap-2 font-mono text-[8px] text-[#8f89a2]"><Clock3 size={13}/>{claimed.length} claimed</span></div>
       {claimed.length ? <div className="grid gap-3 sm:grid-cols-2">{claimed.map(reward=><RewardCard key={reward.id} reward={reward} gold={gold} busy={false} onEdit={()=>undefined} onDelete={()=>undefined} onClaim={()=>undefined}/>)}</div> : <div data-testid="empty-reward-archive" className="flex flex-col items-center border border-dashed border-[#514967] bg-[#1c1a2b] px-4 py-7 text-center"><Trophy size={20} className="mb-3 text-[#746b82]"/><p className="text-xs font-bold text-[#b9b3c8]">No rewards claimed yet</p><p className="mt-1 text-[11px] text-[#817b92]">Your claimed rewards will stay here as a record of your wins.</p></div>}
     </Panel>

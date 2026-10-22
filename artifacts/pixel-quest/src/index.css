@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+@layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -451,3 +452,4 @@ body { background-image: radial-gradient(circle at 78% 4%, rgba(91,72,145,.2), t
     inset: -1px;
   }
 }
+.cl-formFieldInput::placeholder { color:#716b82; opacity:1; }

@@ -160,6 +160,62 @@ export interface PlayerProfile {
   title: string;
 }
 
+export type AvatarId = typeof AvatarId[keyof typeof AvatarId];
+
+
+export const AvatarId = {
+  novice: 'novice',
+  squire: 'squire',
+  knight: 'knight',
+  paladin: 'paladin',
+} as const;
+
+export interface AvatarOption {
+  id: AvatarId;
+  name: string;
+  role: string;
+  description: string;
+  requiredLevel: number;
+  unlocked: boolean;
+}
+
+export interface HabitStreakSummary {
+  habitId: number;
+  habitTitle: string;
+  currentStreak: number;
+  highestStreak: number;
+}
+
+export interface PlayerMilestone {
+  id: string;
+  title: string;
+  description: string;
+  achievedAt: string;
+}
+
+export interface PlayerProfileDetails {
+  username: string;
+  avatarId: AvatarId;
+  level: number;
+  xp: number;
+  gold: number;
+  lifetimeTasksVanquished: number;
+  highestHabitStreak: number;
+  habitStreaks: HabitStreakSummary[];
+  avatars: AvatarOption[];
+  milestones: PlayerMilestone[];
+}
+
+export interface PlayerProfileUpdate {
+  /**
+     * @minLength 3
+     * @maxLength 20
+     * @pattern ^[A-Za-z0-9_]{3,20}$
+     */
+  username?: string;
+  avatarId?: AvatarId;
+}
+
 export interface Achievement {
   id: string;
   name: string;
