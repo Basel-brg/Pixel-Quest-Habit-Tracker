@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { getGetPixelQuestProfileQueryKey, getGetPixelQuestDashboardQueryKey, useGetPixelQuestProfile, useUpdatePixelQuestProfile, type AvatarId } from '@workspace/api-client-react';
+import { getGetPixelQuestProfileQueryKey, getGetPixelQuestDashboardQueryKey, useGetPixelQuestProfile, useGetRpgState, useUpdatePixelQuestProfile, type AvatarId } from '@workspace/api-client-react';
 import { PixelAvatar } from '@/components/PixelAvatar';
+import { SkillRadar } from '@/components/SkillRadar';
 import { EmptyState, ErrorState, LoadingState, MetaText, Panel, PixelButton, PixelPage, ScreenTitle, SectionHeading } from '@/components/PixelUI';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/lib/theme';
@@ -17,6 +18,7 @@ export default function ProfileScreen() {
   const qc = useQueryClient();
   const theme = useTheme();
   const query = useGetPixelQuestProfile();
+  const rpg = useGetRpgState();
   const update = useUpdatePixelQuestProfile();
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
@@ -39,6 +41,9 @@ export default function ProfileScreen() {
     <View style={styles.grid}>{[
       ['Total XP',profile.xp],['Gold',profile.gold],['Tasks vanquished',profile.lifetimeTasksVanquished],['Best habit streak',`${profile.highestHabitStreak} days`],
     ].map(([label,value])=><Panel key={label} style={{width:'48%'}}><Text style={[styles.number,{color:colors.gold}]}>{value}</Text><MetaText>{label}</MetaText></Panel>)}</View>
+    <Panel><SectionHeading title="Character skills"/>
+      {rpg.data?.skills ? <SkillRadar skills={rpg.data.skills}/> : rpg.isLoading ? <LoadingState/> : <ErrorState message="Character skills could not load." retry={() => void rpg.refetch()}/>}
+    </Panel>
     <Panel><SectionHeading title="Habit records"/>
       {profile.habitStreaks.length ? profile.habitStreaks.map(habit=><View key={habit.habitId} style={[styles.record,{borderColor:colors.border}]}><Text style={[styles.copy,{color:colors.foreground}]}>{habit.habitTitle}</Text><MetaText>Best {habit.highestStreak} days · Current {habit.currentStreak} days</MetaText></View>) : <EmptyState title="Your first streak awaits" detail="Complete a habit to begin building your record."/>}
     </Panel>
