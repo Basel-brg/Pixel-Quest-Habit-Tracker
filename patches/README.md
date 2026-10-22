@@ -6,6 +6,14 @@ uses Node.js 24; query-string's ESM interop also relies on that runtime's
 synchronous `require(esm)` support. Expo's Metro bundler supports the same
 default-export interop.
 
+If the nesting checks fail even though the lockfile lists the patch hash, run
+`pnpm install --frozen-lockfile --force` to re-import dependencies, then rerun
+`pnpm run test:security`. An existing dependency directory can contain unpatched
+files despite its patched directory name; an ordinary up-to-date install does
+not repair it. Never treat the directory name or lockfile hash alone as proof
+that the installed code is protected. The suite also checks that Expo's Metro
+and code-signing consumers and the sandbox resolve to the exploit-tested copies.
+
 ## node-forge 1.4.0 — GHSA-86w9-cpqp-85rv
 
 No fixed release is available as of 2026-10-22. The patch enforces the nested

@@ -58,7 +58,7 @@ An account-based, retro habit tracker that turns real discipline into character 
 - HP catches up when the account next loads; no always-on worker is required. A faint lasts six hours, halves XP, then recovers 50 HP.
 - A claimed reward or defeated-boss member cannot be reopened to farm rewards. Deleting an unfinished boss member retires that boss without payout.
 - The optional chest is never a paid draw, has no cash value, and enforces both a local-day limit and a 24-hour cooldown.
-- The dependency exploit suite currently fails two existing `braces` nesting-depth checks. Neither dependency patches nor the lockfile were changed by the RPG work; repair this before claiming a clean security check.
+- If dependency exploit checks fail despite a matching patch hash, follow the forced re-import instructions in `patches/README.md`; the installed files, not just the lockfile, must pass the checks.
 
 ## Pointers
 

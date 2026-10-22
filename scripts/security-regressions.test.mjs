@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { test } from "node:test";
 
 // Resolve from the actual consumers, not a possibly unused top-level copy.
@@ -17,6 +18,20 @@ const queryString = queryRequire("query-string");
 const uuidRequire = childRequire(childRequire(childRequire(mobile, "expo/package.json"), "@expo/config-plugins"), "xcode");
 const uuid = uuidRequire("uuid");
 const parserRequire = childRequire(web, "@tailwindcss/typography");
+
+test("Expo and sandbox consumers resolve to the tested patched dependencies", () => {
+  const sandbox = createRequire(new URL("../artifacts/mockup-sandbox/package.json", import.meta.url));
+  const metro = childRequire(childRequire(cli, "@expo/metro-config"), "@expo/metro/package.json");
+  const consumers = [
+    ["braces", childRequire(childRequire(sandbox, "fast-glob"), "micromatch"), bracesRequire],
+    ["braces", childRequire(childRequire(metro, "metro-file-map"), "micromatch"), bracesRequire],
+    ["node-forge", childRequire(cli, "@expo/code-signing-certificates"), cli],
+  ];
+  for (const [name, consumer, tested] of consumers) {
+    assert.equal(realpathSync(consumer.resolve(name)), realpathSync(tested.resolve(name)),
+      `${name} consumer must use the dependency covered by the exploit tests`);
+  }
+});
 
 function runBounded(code) {
   const result = spawnSync(process.execPath, ["--input-type=commonjs", "-e", code], {
@@ -81,6 +96,17 @@ test("braces rejects deeply nested patterns in every public path (GHSA-vfj7-8cjw
       assert.throws(() => method(pattern), { name: "SyntaxError", message: /maximum nesting depth/ });
     }
   }
+});
+
+test("deep brace attacks fail safely within a bounded process", () => {
+  runBounded(`
+    const assert = require('node:assert/strict');
+    const braces = require(${JSON.stringify(bracesRequire.resolve("braces"))});
+    const pattern = '{('.repeat(2000) + 'x' + ')}'.repeat(2000);
+    for (const method of [braces, braces.create, braces.parse, braces.compile, braces.expand, braces.stringify]) {
+      assert.throws(() => method(pattern), { name: 'SyntaxError', message: /maximum nesting depth/ });
+    }
+  `);
 });
 
 test("braces also guards caller-supplied ASTs, not only parsed strings", () => {
