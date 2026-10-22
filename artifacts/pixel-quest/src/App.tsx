@@ -14,12 +14,14 @@ import ProfilePage from '@/pages/profile';
 import Landing from '@/pages/landing';
 import { Shell } from '@/components/shell';
 import { RpgProvider } from '@/lib/rpg-context';
+import { ThemeProvider } from '@/lib/theme';
 import { RemindersProvider, clearReminderState } from '@/lib/reminders';
 import CampPage from '@/pages/camp';
 import HabitsPage from '@/pages/habits';
 import QuestsPage from '@/pages/quests';
 import InventoryPage from '@/pages/inventory';
 import JournalPage from '@/pages/journal';
+import SettingsPage from '@/pages/settings';
 
 const queryClient = new QueryClient();
 const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
@@ -54,7 +56,7 @@ function HomeRoute() { return <><ClerkLoading><Landing/></ClerkLoading><Show whe
 function AccountScope({ children }: { children: ReactNode }) {
   const { user } = useUser();
   // Reset forms, feedback, reminders and requests as well as server cache on account changes.
-  return <RpgProvider key={user?.id ?? 'signed-out'}><RemindersProvider>{children}</RemindersProvider></RpgProvider>;
+  return <RpgProvider key={user?.id ?? 'signed-out'}><ThemeProvider><RemindersProvider>{children}</RemindersProvider></ThemeProvider></RpgProvider>;
 }
 function Protected({ component: C }: { component: () => ReactNode }) { return <><ClerkLoading><div className="grid min-h-screen place-items-center font-mono text-sm text-[#73e6df]">Loading your save...</div></ClerkLoading><Show when="signed-in"><Shell><C/></Shell></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
 function Router() {
@@ -63,6 +65,7 @@ function Router() {
     <QueryClientProvider client={queryClient}><CacheInvalidator/><TooltipProvider><AccountScope><ErrorBoundary resetKey={location}><Switch>
       <Route path="/" component={HomeRoute}/><Route path="/sign-in/*?" component={SignInPage}/><Route path="/sign-up/*?" component={SignUpPage}/>
       <Route path="/camp">{()=><Protected component={CampPage}/>}</Route><Route path="/habits">{()=><Protected component={HabitsPage}/>}</Route><Route path="/quests">{()=><Protected component={QuestsPage}/>}</Route><Route path="/inventory">{()=><Protected component={InventoryPage}/>}</Route><Route path="/rewards">{()=><Protected component={RewardsPage}/>}</Route><Route path="/journal">{()=><Protected component={JournalPage}/>}</Route><Route path="/profile">{()=><Protected component={ProfilePage}/>}</Route>
+      <Route path="/settings">{()=><Protected component={SettingsPage}/>}</Route>
       <Route component={NotFound}/></Switch></ErrorBoundary></AccountScope><Toaster/></TooltipProvider></QueryClientProvider>
   </ClerkProvider>;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Platform, Text, View, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { Text, View } from "@/components/Themed";
 import { Link, useRouter } from 'expo-router';
 import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';

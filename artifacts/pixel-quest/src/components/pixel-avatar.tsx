@@ -1,4 +1,9 @@
 import type { AvatarId } from '@workspace/api-client-react';
+import { skinFor, type SkinTheme } from '@/lib/avatar-art';
+import { useTheme } from '@/lib/theme';
+
+/** Active account theme, or retro when rendered outside the provider (e.g. renderToStaticMarkup). */
+function useSkinTheme(): SkinTheme { try { return useTheme().theme; } catch { return 'retro'; } }
 
 type R = [number, number, number, number, string];
 const skin = '#f0c29a', hair = '#6b4a35', out = '#1b1930';
@@ -18,10 +23,18 @@ const art: Record<AvatarId, R[]> = {
     [5, 2, 6, 5, '#f5e7c8'], [6, 4, 1, 1, '#73e6df'], [9, 4, 1, 1, '#73e6df'],
     [4, 7, 8, 5, '#f5ca62'], [7, 8, 2, 3, '#73e6df'], [3, 7, 2, 2, '#ffe28a'], [11, 7, 2, 2, '#ffe28a'], [5, 12, 2, 3, '#d9a93f'], [9, 12, 2, 3, '#d9a93f'], [5, 15, 2, 1, out], [9, 15, 2, 1, out]],
 };
-export function PixelAvatar({ id, size = 96, locked = false, testId }: { id: AvatarId; size?: number; locked?: boolean; testId?: string }) {
+export function PixelAvatar({ id, size = 96, locked = false, testId, themeId }: { id: AvatarId; size?: number; locked?: boolean; testId?: string; themeId?: SkinTheme }) {
+  const active = useSkinTheme();
+  const skin = skinFor(themeId ?? active, id);
   return <svg data-testid={testId} role="img" aria-label={`${id} avatar`} viewBox="0 0 16 16" width={size} height={size} shapeRendering="crispEdges" style={{ filter: locked ? 'grayscale(1) brightness(.5)' : undefined }}>
-    <rect width="16" height="16" fill="#252238"/>
-    {id === 'paladin' && <rect x="2" y="1" width="12" height="14" fill="#f5ca62" opacity=".12"/>}
-    {art[id].map(([x, y, w, h, fill], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={fill}/>)}
+    <rect width="16" height="16" fill={skin ? skin.bg : '#252238'}/>
+    {skin ? <>
+      {skin.glow && <rect x="1" y="1" width="14" height="14" fill={skin.glow} opacity=".14"/>}
+      {skin.art.map(([x, y, w, h, fill], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={fill}/>)}
+      {skin.frame && <rect x=".25" y=".25" width="15.5" height="15.5" fill="none" stroke={skin.frame} strokeWidth=".5"/>}
+    </> : <>
+      {id === 'paladin' && <rect x="2" y="1" width="12" height="14" fill="#f5ca62" opacity=".12"/>}
+      {art[id].map(([x, y, w, h, fill], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={fill}/>)}
+    </>}
   </svg>;
 }

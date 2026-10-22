@@ -10,7 +10,8 @@ import {
 } from '@workspace/api-client-react';
 import type { Habit } from '@workspace/api-client-react';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet} from 'react-native';
+import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
 import {
   dateKey,

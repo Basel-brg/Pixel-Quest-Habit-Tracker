@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet} from 'react-native';
+import { Pressable, Text, View } from "@/components/Themed";
 import { useFocusEffect } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';

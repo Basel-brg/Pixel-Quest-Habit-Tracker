@@ -267,6 +267,18 @@ export const AvatarId = {
   paladin: 'paladin',
 } as const;
 
+export type ThemeId = typeof ThemeId[keyof typeof ThemeId];
+
+
+export const ThemeId = {
+  retro: 'retro',
+  anime: 'anime',
+  cyberpunk: 'cyberpunk',
+  parchment: 'parchment',
+  brutalist: 'brutalist',
+  cozy: 'cozy',
+} as const;
+
 export interface HabitStreakSummary {
   habitId: number;
   habitTitle: string;
@@ -293,6 +305,8 @@ export interface PlayerMilestone {
 export interface PlayerProfileDetails {
   username: string;
   avatarId: AvatarId;
+  selectedTheme: ThemeId;
+  themeUpdatedAt: string;
   level: number;
   xp: number;
   gold: number;
@@ -478,6 +492,7 @@ export interface RpgActionInput {
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;
   avatarId?: AvatarId;
+  themeId?: ThemeId;
 }
 
 export interface HealthStatus {
@@ -593,6 +608,7 @@ export interface PlayerProfileUpdate {
      */
   username?: string;
   avatarId?: AvatarId;
+  themeId?: ThemeId;
 }
 
 export interface Achievement {

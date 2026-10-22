@@ -54,6 +54,7 @@ An account-based, retro habit tracker that turns real discipline into character 
 
 - Clerk UI is bundled explicitly with `ui={ui}`. Preserve managed-host key/proxy handling.
 - Browser reminders require permission and an open web app; they are not native/background push notifications.
+- General preferences live only in Settings, not Profile. Mobile web navigation has four daily destinations plus More; keep enough safe-area padding above its fixed bar.
 - HP catches up when the account next loads; no always-on worker is required. A faint lasts six hours, halves XP, then recovers 50 HP.
 - A claimed reward or defeated-boss member cannot be reopened to farm rewards. Deleting an unfinished boss member retires that boss without payout.
 - The optional chest is never a paid draw, has no cash value, and enforces both a local-day limit and a 24-hour cooldown.

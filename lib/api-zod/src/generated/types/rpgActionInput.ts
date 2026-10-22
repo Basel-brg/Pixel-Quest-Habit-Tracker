@@ -12,6 +12,7 @@ import type { RpgActionInputFrequency } from './rpgActionInputFrequency';
 import type { RpgActionInputStat } from './rpgActionInputStat';
 import type { RpgActionInputType } from './rpgActionInputType';
 import type { RpgCondition } from './rpgCondition';
+import type { ThemeId } from './themeId';
 
 export interface RpgActionInput {
   /**
@@ -100,4 +101,5 @@ export interface RpgActionInput {
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;
   avatarId?: AvatarId;
+  themeId?: ThemeId;
 }

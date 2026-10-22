@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AvatarId } from './avatarId';
+import type { ThemeId } from './themeId';
 
 export interface PlayerProfileUpdate {
   /**
@@ -15,4 +16,5 @@ export interface PlayerProfileUpdate {
      */
   username?: string;
   avatarId?: AvatarId;
+  themeId?: ThemeId;
 }

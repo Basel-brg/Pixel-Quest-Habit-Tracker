@@ -69,3 +69,4 @@ export * from './taskInput';
 export * from './taskInputDifficulty';
 export * from './taskUpdate';
 export * from './taskUpdateDifficulty';
+export * from './themeId';

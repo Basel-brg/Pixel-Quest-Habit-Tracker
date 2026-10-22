@@ -154,7 +154,7 @@ class Game {
     const level = levelForXp(this.player.xp).level;
     const habitStreaks = this.habits.map(h => { const s = streaks(this.j.habits[h.id], this.today, this.j.protections, h.id); return { habitId: h.id, habitTitle: h.title, currentStreak: s.current, highestStreak: s.best }; });
     const milestones = await this.tx.select().from(playerMilestonesTable).where(eq(playerMilestonesTable.userId, this.uid)).orderBy(desc(playerMilestonesTable.achievedAt));
-    const profile = { username: this.user.username, avatarId: this.user.selectedAvatar, xp: this.player.xp, gold: this.player.gold, level, lifetimeTasksVanquished: this.player.lifetimeTasksVanquished, highestHabitStreak: Math.max(0, ...habitStreaks.map(h => h.highestStreak)), habitStreaks, avatars: AVATARS.map(a => ({ ...a, unlocked: level >= a.requiredLevel })), milestones: milestones.map(m => ({ id: m.key, title: m.title, description: m.description, achievedAt: m.achievedAt.toISOString() })) };
+    const profile = { username: this.user.username, avatarId: this.user.selectedAvatar, selectedTheme: this.user.selectedTheme, themeUpdatedAt: this.user.themeUpdatedAt.toISOString(), xp: this.player.xp, gold: this.player.gold, level, lifetimeTasksVanquished: this.player.lifetimeTasksVanquished, highestHabitStreak: Math.max(0, ...habitStreaks.map(h => h.highestStreak)), habitStreaks, avatars: AVATARS.map(a => ({ ...a, unlocked: level >= a.requiredLevel })), milestones: milestones.map(m => ({ id: m.key, title: m.title, description: m.description, achievedAt: m.achievedAt.toISOString() })) };
     const skills = { STR: 0, INT: 0, WIS: 0 };
     for (const a of Object.values(this.j.awards)) if (a.active && a.stat) skills[a.stat]++;
     const dayOfWeek = new Date(`${this.today}T12:00:00Z`).getUTCDay(), monday = addDays(this.today, -((dayOfWeek + 6) % 7));
@@ -353,6 +353,10 @@ class Game {
         this.event("chest", outcome, 0, outcome === "10 Gold" ? 10 : 0); this.message = `Daily chest: ${outcome}! No cash value.`; this.effect = "reward"; break;
       }
       case "profile": {
+        if (a.themeId !== undefined && a.themeId !== this.user.selectedTheme) {
+          this.user.selectedTheme = a.themeId;
+          this.user.themeUpdatedAt = this.now;
+        }
         if (a.username !== undefined) {
           const [taken] = await this.tx.select({ id: pixelQuestUsersTable.id }).from(pixelQuestUsersTable).where(sql`lower(${pixelQuestUsersTable.username}) = lower(${a.username}) AND ${pixelQuestUsersTable.id} <> ${this.uid}`);
           if (taken) fail("That username is already taken.");
@@ -440,7 +444,7 @@ export async function runGame(uid: string, input?: Action, now = new Date(), out
     }
     for (const a of AVATARS) if (levelBefore < a.requiredLevel && level >= a.requiredLevel) await tx.insert(playerMilestonesTable).values({ userId: uid, key: `level-${a.requiredLevel}`, title: `Level ${a.requiredLevel}: ${a.name} unlocked`, description: a.description, achievedAt: now }).onConflictDoNothing();
     await tx.update(playerProfileTable).set({ xp: player.xp, gold: player.gold, lifetimeTasksVanquished: player.lifetimeTasksVanquished }).where(eq(playerProfileTable.userId, uid));
-    await tx.update(pixelQuestUsersTable).set({ username: user.username, selectedAvatar: user.selectedAvatar }).where(eq(pixelQuestUsersTable.id, uid));
+    await tx.update(pixelQuestUsersTable).set({ username: user.username, selectedAvatar: user.selectedAvatar, selectedTheme: user.selectedTheme, themeUpdatedAt: user.themeUpdatedAt }).where(eq(pixelQuestUsersTable.id, uid));
     await tx.insert(pixelRpgStateTable).values({ userId: uid, journal: j, updatedAt: now }).onConflictDoUpdate({ target: pixelRpgStateTable.userId, set: { journal: j, updatedAt: now } });
     return game.snapshot();
   });

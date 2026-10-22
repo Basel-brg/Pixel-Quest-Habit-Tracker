@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ThemeProvider } from '@/lib/theme';
 import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { tokenCache } from '@clerk/expo/token-cache';
@@ -16,9 +17,6 @@ import {
 import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
 import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import {
-  StatusBar,
-} from 'expo-status-bar';
-import {
   useFonts,
 } from '@expo-google-fonts/dm-sans';
 import { Stack } from 'expo-router';
@@ -34,17 +32,22 @@ setBaseUrl(apiDomain ? `https://${apiDomain}` : null);
 function RootLayoutNav() {
   const { userId, getToken } = useAuth();
   const previous = useRef<string | null | undefined>(undefined);
+  const [tokenReady, setTokenReady] = useState(false);
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
+    setTokenReady(true);
     if (previous.current !== undefined && previous.current !== userId) queryClient.clear();
     previous.current = userId;
-    return () => setAuthTokenGetter(null);
+    return () => { setTokenReady(false); setAuthTokenGetter(null); };
   }, [userId, getToken]);
   return (
-    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-    </Stack>
+    <ThemeProvider key={userId ?? 'signed-out'} userId={userId} enabled={tokenReady && !!userId}>
+      <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+      </Stack>
+    </ThemeProvider>
   );
 }
 
@@ -74,7 +77,6 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <StatusBar style="light" />
               <RootLayoutNav />
             </KeyboardProvider>
           </GestureHandlerRootView>

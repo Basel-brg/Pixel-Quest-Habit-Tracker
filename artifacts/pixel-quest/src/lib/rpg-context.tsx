@@ -113,9 +113,9 @@ export function RpgProvider({ children }: { children: ReactNode }) {
 
   return <Ctx.Provider value={value}>{children}
     {celebration && <div key={celebration.id} data-testid="celebration" aria-live="polite" className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">
-      {!reducedMotion() && Array.from({ length: 28 }, (_, i) => <i key={i} className="pixel-spark absolute h-2 w-2" style={{ left: `${(i * 37) % 97}%`, top: `${(i * 19) % 75}%`, background: ['#f5ca62', '#73e6df', '#b497f7', '#f29b83'][i % 4], animationDelay: `${i * 14}ms` }}/>)}
-      <div className="absolute left-1/2 top-[22%] w-[min(90vw,380px)] -translate-x-1/2 border-2 border-[#f5ca62] bg-[#211f33] px-5 py-4 text-center shadow-[5px_5px_0_#0e0d18]">
-        <p className="pixel-title text-[10px] text-[#f5ca62]">{celebration.kind === 'boss' ? 'BOSS DEFEATED' : 'REWARD'}</p>
-        <p className="mt-3 text-xs text-[#73e6df]">{celebration.text}</p></div></div>}
+      {!reducedMotion() && Array.from({ length: 28 }, (_, i) => <i key={i} className="pixel-spark absolute h-2 w-2" style={{ left: `${(i * 37) % 97}%`, top: `${(i * 19) % 75}%`, background: ['var(--pq-gold)', 'var(--pq-cyan)', 'var(--pq-purple)', 'var(--pq-danger)'][i % 4], animationDelay: `${i * 14}ms` }}/>)}
+      <div className="absolute left-1/2 top-[22%] w-[min(90vw,380px)] -translate-x-1/2 border-2 border-[color:var(--pq-gold)] bg-[color:var(--pq-panel)] px-5 py-4 text-center shadow-[5px_5px_0_var(--pq-shadow)]">
+        <p className="pixel-title text-[10px] text-[color:var(--pq-gold)]">{celebration.kind === 'boss' ? 'BOSS DEFEATED' : 'REWARD'}</p>
+        <p className="mt-3 text-xs text-[color:var(--pq-cyan)]">{celebration.text}</p></div></div>}
   </Ctx.Provider>;
 }

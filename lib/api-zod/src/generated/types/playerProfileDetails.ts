@@ -9,10 +9,13 @@ import type { AvatarId } from './avatarId';
 import type { AvatarOption } from './avatarOption';
 import type { HabitStreakSummary } from './habitStreakSummary';
 import type { PlayerMilestone } from './playerMilestone';
+import type { ThemeId } from './themeId';
 
 export interface PlayerProfileDetails {
   username: string;
   avatarId: AvatarId;
+  selectedTheme: ThemeId;
+  themeUpdatedAt: Date;
   level: number;
   xp: number;
   gold: number;

@@ -225,3 +225,30 @@ test("claimed trophies freeze savings, while manual savings remain virtual", asy
   s = await act(uid, { action: "completeQuest", id: s.quests[0].id }); assert.equal(s.rewards[0].savedAmount, 50);
   await reject(act(uid, { action: "savings", id, savedAmount: 100 }));
 });
+test("all six account themes persist without changing progression or another account", async () => {
+  const uid = await account(123, 250), other = await account();
+  let state = await act(uid, { action: "saveHabit", title: "Preserved habit" });
+  const initial = state.profile, habitId = state.habits[0].id;
+  assert.equal(initial.selectedTheme, "retro");
+  for (const themeId of ["retro", "anime", "cyberpunk", "parchment", "brutalist", "cozy"] as const) {
+    state = await act(uid, { action: "profile", themeId });
+    const fresh = await runGame(uid, undefined, base);
+    assert.equal(fresh.profile.selectedTheme, themeId);
+    assert.equal(fresh.profile.xp, initial.xp); assert.equal(fresh.profile.gold, initial.gold);
+    assert.equal(fresh.profile.avatarId, initial.avatarId); assert.equal(fresh.profile.username, initial.username);
+    assert.equal(fresh.habits[0].id, habitId); assert.equal(fresh.hp, 100);
+    assert.ok(Number.isFinite(new Date(fresh.profile.themeUpdatedAt).getTime()));
+  }
+  const isolated = await runGame(other, undefined, base); assert.equal(isolated.profile.selectedTheme, "retro");
+  await assert.rejects(runGame(uid, { action: "profile", themeId: "invalid", requestId: randomUUID() } as unknown as Action, base));
+  assert.equal((await runGame(uid, undefined, base)).profile.selectedTheme, "cozy");
+});
+test("replaying an old theme save cannot replace a newer account preference", async () => {
+  const uid = await account(), rid = randomUUID();
+  await act(uid, { action: "profile", themeId: "anime" }, base, rid);
+  const changed = await act(uid, { action: "profile", themeId: "cozy" }, new Date("2026-10-20T11:00Z"));
+  const replay = await act(uid, { action: "profile", themeId: "anime" }, new Date("2026-10-20T12:00Z"), rid);
+  assert.equal(replay.profile.selectedTheme, "cozy"); assert.equal(new Date(replay.profile.themeUpdatedAt).getTime(), new Date(changed.profile.themeUpdatedAt).getTime());
+  await act(uid, { action: "saveQuest", title: "Does not reset theme", difficulty: "easy" });
+  assert.equal((await runGame(uid, undefined, base)).profile.selectedTheme, "cozy");
+});

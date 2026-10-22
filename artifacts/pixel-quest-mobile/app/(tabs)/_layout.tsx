@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -9,15 +9,15 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useAuth } from '@clerk/expo';
 import { Redirect } from 'expo-router';
+import { useTheme } from '@/lib/theme';
 import { LoadingState } from '@/components/PixelUI';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
-// NativeTabs intentionally does NOT use custom design tokens — liquid glass
-// is a system-level appearance provided by iOS and cannot be overridden.
-// Custom brand colors are applied only on the ClassicTabLayout path (older iOS / Android / web).
+// Keep system liquid-glass behavior while tinting native controls with the account theme.
 function NativeTabLayout() {
+  const colors = useColors();
   return (
-    <NativeTabs>
+    <NativeTabs backgroundColor={colors.sidebar} tintColor={colors.cyan} iconColor={{ default: colors.mutedForeground, selected: colors.cyan }} labelStyle={{ default: { color: colors.mutedForeground }, selected: { color: colors.cyan } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
@@ -44,8 +44,8 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { tokens } = useTheme();
+  const isDark = tokens.dark;
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
@@ -55,10 +55,11 @@ function ClassicTabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
+        tabBarLabelStyle: { fontFamily: tokens.fontMap.DMSans_700Bold, fontSize: 11 },
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: isIOS ? 'transparent' : colors.background,
-          borderTopWidth: 1,
+          borderTopWidth: tokens.border.panel,
           borderTopColor: colors.border,
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),

@@ -2,17 +2,16 @@ import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   type StyleProp,
   type TextInputProps,
   type ViewStyle,
-  View,
 } from 'react-native';
+import { Pressable, Text, View } from '@/components/Themed';
+import { useTheme } from '@/lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
@@ -84,11 +83,13 @@ export function Panel({
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
+  const { tokens } = useTheme();
   return (
     <View
       style={[
         styles.panel,
         { backgroundColor: colors.card, borderColor: colors.border },
+        tokens.shadow,
         style,
       ]}
     >
@@ -109,13 +110,14 @@ export function ScreenTitle({
   trailing?: ReactNode;
 }) {
   const colors = useColors();
+  const { tokens } = useTheme();
   return (
     <View style={styles.screenTitle}>
       <View style={styles.titleCopy}>
         {eyebrow ? (
-          <Text style={[styles.eyebrow, { color: colors.cyan }]}>{eyebrow}</Text>
+          <Text style={[styles.eyebrow, tokens.eyebrow, { color: colors.cyan }]}>{eyebrow}</Text>
         ) : null}
-        <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
+        <Text style={[styles.title, tokens.title, { color: colors.foreground }]}>{title}</Text>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {subtitle}
@@ -135,9 +137,10 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   const colors = useColors();
+  const { tokens } = useTheme();
   return (
     <View style={styles.sectionHeading}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+      <Text style={[styles.sectionTitle, tokens.section, { color: colors.foreground }]}>
         {title}
       </Text>
       {action}
@@ -161,6 +164,7 @@ export function PixelButton({
   testID: string;
 }) {
   const colors = useColors();
+  const { tokens } = useTheme();
   const palette = {
     primary: { backgroundColor: colors.primary, color: colors.primaryForeground },
     quiet: { backgroundColor: colors.secondary, color: colors.foreground },
@@ -178,10 +182,19 @@ export function PixelButton({
       style={({ pressed }) => [
         styles.button,
         compact && styles.buttonCompact,
-        { backgroundColor: palette.backgroundColor, opacity: disabled ? 0.48 : pressed ? 0.78 : 1 },
+        {
+          backgroundColor: palette.backgroundColor, opacity: disabled ? 0.48 : pressed ? 0.85 : 1,
+          borderRadius: tokens.radius.pill ? 999 : tokens.radius.md,
+          borderWidth: tokens.id === 'brutalist' ? 3 : tokens.id === 'cyberpunk' ? 1 : 0,
+          borderColor: tokens.id === 'brutalist' ? '#111111' : palette.backgroundColor,
+          borderBottomWidth: tokens.buttonEdge && !pressed ? tokens.buttonEdge : tokens.id === 'brutalist' ? 3 : tokens.id === 'cyberpunk' ? 1 : 0,
+          transform: pressed && tokens.buttonEdge ? [{ translateY: 2 }] : undefined,
+        },
+        tokens.id === 'brutalist' || tokens.id === 'retro' ? tokens.shadow : null,
+        tokens.buttonEdge ? { borderBottomColor: 'rgba(0,0,0,0.28)' } : null,
       ]}
     >
-      <Text style={[styles.buttonText, { color: palette.color }]}>{label}</Text>
+      <Text style={[styles.buttonText, tokens.button, { color: palette.color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -229,6 +242,7 @@ export function Field({
   ...props
 }: TextInputProps & { label: string }) {
   const colors = useColors();
+  const { tokens } = useTheme();
   return (
     <View style={styles.fieldWrap}>
       <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
@@ -239,7 +253,7 @@ export function Field({
         placeholderTextColor={colors.mutedForeground}
         style={[
           styles.input,
-          {
+          { fontFamily: tokens.fontMap.DMSans_400Regular, borderRadius: tokens.radius.md, borderWidth: tokens.border.control + (tokens.id === 'brutalist' ? 0 : 0),
             color: colors.foreground,
             borderColor: colors.border,
             backgroundColor: colors.sidebar,

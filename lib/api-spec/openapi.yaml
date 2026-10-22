@@ -667,6 +667,7 @@ components:
         equipped: { type: boolean }
         username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
+        themeId: { $ref: "#/components/schemas/ThemeId" }
     HealthStatus:
       type: object
       properties:
@@ -792,10 +793,12 @@ components:
         achievedAt: { type: string, format: date-time }
     PlayerProfileDetails:
       type: object
-      required: [username, avatarId, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones]
+      required: [username, avatarId, selectedTheme, themeUpdatedAt, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones]
       properties:
         username: { type: string }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
+        selectedTheme: { $ref: "#/components/schemas/ThemeId" }
+        themeUpdatedAt: { type: string, format: date-time }
         level: { type: integer }
         xp: { type: integer }
         gold: { type: integer }
@@ -819,6 +822,10 @@ components:
           maxLength: 20
           pattern: "^[A-Za-z0-9_]{3,20}$"
         avatarId: { $ref: "#/components/schemas/AvatarId" }
+        themeId: { $ref: "#/components/schemas/ThemeId" }
+    ThemeId:
+      type: string
+      enum: [retro, anime, cyberpunk, parchment, brutalist, cozy]
     Achievement:
       type: object
       required: [id, name, description, unlocked]

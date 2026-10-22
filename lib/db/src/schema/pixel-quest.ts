@@ -18,6 +18,8 @@ export const pixelQuestUsersTable = pgTable(
     id: text("id").primaryKey(),
     username: text("username").notNull(),
     selectedAvatar: text("selected_avatar").notNull().default("novice"),
+    selectedTheme: text("selected_theme").notNull().default("retro"),
+    themeUpdatedAt: timestamp("theme_updated_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -1,13 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { AvatarId } from '@workspace/api-client-react';
+import type { SkinTheme } from '@/lib/avatar-art';
 import { PixelAvatar } from '@/components/pixel-avatar';
 
-export interface CardData { username: string; avatarId: AvatarId; level?: number; streak?: number; reward?: string }
+export interface CardData { username: string; avatarId: AvatarId; level?: number; streak?: number; reward?: string; themeId?: SkinTheme }
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c] as string));
 export const CARD_W = 600; export const CARD_H = 340;
 export function buildCardSvg(d: CardData): string {
-  const avatar = renderToStaticMarkup(createElement(PixelAvatar, { id: d.avatarId, size: 180 }));
+  const avatar = renderToStaticMarkup(createElement(PixelAvatar, { id: d.avatarId, size: 180, themeId: d.themeId ?? 'retro' }));
   const rows: [string, string][] = [];
   if (d.level !== undefined) rows.push(['LEVEL', String(d.level)]);
   if (d.streak !== undefined) rows.push(['BEST STREAK', `${d.streak} days`]);

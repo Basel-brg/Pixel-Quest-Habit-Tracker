@@ -5,7 +5,8 @@ import { useGetAchievements, useGetHabits, useGetPixelQuestDashboard, useGetTask
 import { useColors } from '@/hooks/useColors';
 import { dateKey, invalidatePixelQuest, isHabitScheduledToday, localDateKey } from '@/lib/pixel-quest';
 import { EmptyState, ErrorState, LoadingState, MetaText, Panel, PixelBar, PixelPage, ScreenTitle, SectionHeading } from '@/components/PixelUI';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet} from 'react-native';
+import { Pressable, Text, View } from "@/components/Themed";
 
 const difficultyColor = {
   easy: 'success',

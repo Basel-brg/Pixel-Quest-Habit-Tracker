@@ -25,6 +25,8 @@ export const GetRpgStateResponse = zod.object({
   "profile": zod.object({
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "selectedTheme": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']),
+  "themeUpdatedAt": zod.coerce.date(),
   "level": zod.number().int(),
   "xp": zod.number().int(),
   "gold": zod.number().int(),
@@ -296,7 +298,8 @@ export const PerformRpgActionBody = zod.object({
   "chestEnabled": zod.boolean().optional(),
   "equipped": zod.boolean().optional(),
   "username": zod.string().regex(performRpgActionBodyUsernameRegExp).optional(),
-  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional()
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional(),
+  "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional()
 })
 
 export const performRpgActionResponseRewardsItemTwoConditionsItemTargetMax = 1000000;
@@ -313,6 +316,8 @@ export const PerformRpgActionResponse = zod.object({
   "profile": zod.object({
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "selectedTheme": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']),
+  "themeUpdatedAt": zod.coerce.date(),
   "level": zod.number().int(),
   "xp": zod.number().int(),
   "gold": zod.number().int(),
@@ -533,6 +538,8 @@ export const GetPixelQuestDashboardResponse = zod.object({
 export const GetPixelQuestProfileResponse = zod.object({
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "selectedTheme": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']),
+  "themeUpdatedAt": zod.coerce.date(),
   "level": zod.number().int(),
   "xp": zod.number().int(),
   "gold": zod.number().int(),
@@ -573,12 +580,15 @@ export const updatePixelQuestProfileBodyUsernameRegExp = new RegExp('^[A-Za-z0-9
 
 export const UpdatePixelQuestProfileBody = zod.object({
   "username": zod.string().min(updatePixelQuestProfileBodyUsernameMin).max(updatePixelQuestProfileBodyUsernameMax).regex(updatePixelQuestProfileBodyUsernameRegExp).optional(),
-  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional()
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional(),
+  "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional()
 })
 
 export const UpdatePixelQuestProfileResponse = zod.object({
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "selectedTheme": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']),
+  "themeUpdatedAt": zod.coerce.date(),
   "level": zod.number().int(),
   "xp": zod.number().int(),
   "gold": zod.number().int(),

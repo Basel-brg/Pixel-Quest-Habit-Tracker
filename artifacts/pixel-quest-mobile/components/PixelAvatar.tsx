@@ -1,8 +1,18 @@
 import Svg, { Rect } from 'react-native-svg';
+import { skinFor } from '@/constants/avatarArt';
+import { useTheme } from '@/lib/theme';
 import type { AvatarId } from '@workspace/api-client-react';
 type Pixel = [number, number, number, number, string];
 const skin = '#f0c29a', dark = '#161727';
 export function PixelAvatar({ id, size = 100, locked = false }: {id: AvatarId; size?: number; locked?: boolean}) {
+  const { themeId } = useTheme();
+  const sk = skinFor(themeId, id);
+  if (sk) return <Svg width={size} height={size} viewBox="0 0 16 16" accessibilityLabel={`${id} avatar`} style={{opacity:locked ? .3 : 1}}>
+    <Rect width={16} height={16} fill={sk.bg}/>
+    {sk.glow ? <Rect x={1} y={1} width={14} height={14} fill={sk.glow} opacity={.14}/> : null}
+    {sk.art.map(([x,y,width,height,fill], index) => <Rect key={index} {...{x,y,width,height,fill}}/>)}
+    {sk.frame ? <Rect x={.25} y={.25} width={15.5} height={15.5} fill="none" stroke={sk.frame} strokeWidth={.5}/> : null}
+  </Svg>;
   const armored = id === 'knight' || id === 'paladin';
   const armor = id === 'paladin' ? '#f8d061' : id === 'knight' ? '#cbd4e8' : id === 'squire' ? '#9b6a3f' : '#8a6f4e';
   const pixels: Pixel[] = [
