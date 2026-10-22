@@ -54,6 +54,5 @@ export default function SettingsPage() {
       <p className="mb-4 text-sm text-[color:var(--pq-mute)]">Your saved progress stays in your account when you sign out.</p>
       <Btn testId="button-logout" variant="danger" className="min-h-14" onClick={() => void signOut({ redirectUrl: import.meta.env.BASE_URL })}><LogOut size={20}/>Log out</Btn>
     </Panel>
-    <Panel><SectionHead eyebrow="HELP" title="How the rules work"/><ul data-testid="list-rules" className="space-y-3 text-sm text-[color:var(--pq-mute)]">{s.rules.map((r, i) => <li key={i}>{r}</li>)}</ul></Panel>
   </>}</Gate>;
 }
