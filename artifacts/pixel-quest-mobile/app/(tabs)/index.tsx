@@ -33,7 +33,8 @@ export default function TodayScreen() {
   const today = localDateKey();
   const dashboard = dashboardQuery.data;
   const profile = dashboard?.profile;
-  const playerName = playerProfileQuery.data?.username?.trim() || 'HERO';
+  const username = playerProfileQuery.data?.username?.trim();
+  const playerName = username ? `HERO ${username}` : 'HERO';
   const dateLabel = new Intl.DateTimeFormat('en', {
     weekday: 'long',
     month: 'long',
