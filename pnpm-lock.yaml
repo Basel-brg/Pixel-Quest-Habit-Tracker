@@ -93,6 +93,7 @@ overrides:
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc': '-'
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-x64-msvc': '-'
   brace-expansion@^5: ^5.0.12
+  body-parser@^2: 2.4.0
   decode-uri-component@<0.5.0: 0.5.0
   esbuild: 0.28.2
   esbuild>@esbuild/aix-ppc64: '-'
@@ -120,7 +121,7 @@ overrides:
   esbuild>@esbuild/win32-arm64: '-'
   esbuild>@esbuild/win32-ia32: '-'
   esbuild>@esbuild/win32-x64: '-'
-  fast-uri@^3: ^3.1.8
+  fast-uri@^3: 3.1.9
   js-yaml: 4.3.2
   lightningcss>lightningcss-android-arm64: '-'
   lightningcss>lightningcss-darwin-arm64: '-'
@@ -160,6 +161,8 @@ overrides:
   rollup>@rollup/rollup-win32-x64-msvc: '-'
   source-map-js@^1: ^1.2.2
   uuid@<11.1.1: 11.1.1
+  undici@^7: 7.30.1
+  zod@^4: 4.6.7
 
 patchedDependencies:
   braces@3.0.3:
@@ -171,6 +174,9 @@ patchedDependencies:
   query-string@7.1.3:
     hash: 46db1528419668d062ae89902c4e7903fcb32d3874805fa87ea48a7aa9340d38
     path: patches/query-string@7.1.3.patch
+  zod@3.25.76:
+    hash: ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e
+    path: patches/zod@3.25.76.patch
 
 importers:
 
@@ -224,7 +230,7 @@ importers:
         version: 10.5.0
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
     devDependencies:
       '@types/cookie-parser':
         specifier: ^1.4.10
@@ -432,7 +438,7 @@ importers:
         version: 7.3.7(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
   artifacts/pixel-quest:
     dependencies:
@@ -634,13 +640,13 @@ importers:
         version: 3.13.0(react@19.1.10)
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
   artifacts/pixel-quest-mobile:
     dependencies:
       '@clerk/expo':
         specifier: ^4.13.1
-        version: 4.13.1(@types/react@19.2.18)(expo-auth-session@57.0.16(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(expo-constants@57.0.22)(expo-crypto@57.0.4(expo@57.0.30))(expo-secure-store@57.0.4(expo@57.0.30))(expo-web-browser@57.0.3(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)))(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)
+        version: 4.13.1(@types/react@19.2.18)(expo-auth-session@57.0.16(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(expo-constants@57.0.22)(expo-crypto@57.0.4(expo@57.0.30))(expo-secure-store@57.0.4(expo@57.0.30))(expo-web-browser@57.0.3(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)))(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       expo-audio:
         specifier: ~57.0.5
         version: 57.0.5(expo-asset@57.0.20(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
@@ -800,10 +806,10 @@ importers:
         version: 6.0.3
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
       zod-validation-error:
         specifier: ^3.4.0
-        version: 3.5.4(zod@3.25.76)
+        version: 3.5.4(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
 
   lib/api-client-react:
     dependencies:
@@ -815,13 +821,13 @@ importers:
     devDependencies:
       orval:
         specifier: ^8.41.0
-        version: 8.41.0(@tanstack/react-query@5.104.1(react@19.2.3))(prettier@3.9.10)(swr@2.3.4(react@19.2.3))(typescript@6.0.3)(zod@4.6.5)
+        version: 8.41.0(@tanstack/react-query@5.104.1(react@19.2.3))(prettier@3.9.10)(swr@2.3.4(react@19.2.3))(typescript@6.0.3)(zod@4.6.7)
 
   lib/api-zod:
     dependencies:
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
   lib/db:
     dependencies:
@@ -830,13 +836,13 @@ importers:
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
       drizzle-zod:
         specifier: ^0.8.3
-        version: 0.8.3(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(zod@3.25.76)
+        version: 0.8.3(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       pg:
         specifier: ^8.23.1
         version: 8.23.1
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1825,7 +1831,7 @@ packages:
   '@orval/zod@8.41.0':
     resolution: {integrity: sha512-zoIM6CqQQMqB61lchpZCNudvTBCfzIdMEwI9AxsMexRP0XhskOTibRQ+TwTPB7MXNRzpJ6/CkDTZ50DY4uBtjg==}
     peerDependencies:
-      zod: '>=3'
+      zod: 4.6.7
     peerDependenciesMeta:
       zod:
         optional: true
@@ -2847,7 +2853,7 @@ packages:
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
     peerDependencies:
       typescript: '>=5.0.4'
-      zod: ^3.22.0 || ^4.0.0
+      zod: 4.6.7
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -2858,7 +2864,7 @@ packages:
     resolution: {integrity: sha512-fk6Te+bojIFrMvMZrnOO+SxCB+RUksTGOzq/60ZRvs1L+BVzvi2bqt9L3W/17ZLdZsyM1FuYf65P5nlmoiH1Bg==}
     peerDependencies:
       typescript: '>=5.0.4'
-      zod: ^3.22.0 || ^4.0.0
+      zod: 4.6.7
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -3026,8 +3032,8 @@ packages:
     resolution: {integrity: sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==}
     engines: {node: '>=0.6'}
 
-  body-parser@2.3.0:
-    resolution: {integrity: sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==}
+  body-parser@2.4.0:
+    resolution: {integrity: sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==}
     engines: {node: '>=18'}
 
   boolbase@1.0.0:
@@ -3540,7 +3546,7 @@ packages:
     resolution: {integrity: sha512-66yVOuvGhKJnTdiqj1/Xaaz9/qzOdRJADpDa68enqS6g3t0kpNkwNYjUuaeXgZfO/UWuIM9HIhSlJ6C5ZraMww==}
     peerDependencies:
       drizzle-orm: '>=0.36.0'
-      zod: ^3.25.0 || ^4.0.0
+      zod: 4.6.7
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -3931,8 +3937,8 @@ packages:
   fast-sha256@1.3.0:
     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
-  fast-uri@3.1.8:
-    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
   fastest-levenshtein@1.0.16:
     resolution: {integrity: sha512-eRnCtTTtGZFpQCwhJiUOuxPQWRXVKYDn0b2PeHfXL6/Zi53SLAzAHfVhVWK2AryC/WH05kGfxhFIPvTF0SXQzg==}
@@ -4945,6 +4951,10 @@ packages:
     resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
     engines: {node: '>=0.6'}
 
+  qs@6.16.1:
+    resolution: {integrity: sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==}
+    engines: {node: '>=0.6'}
+
   query-string@7.1.3:
     resolution: {integrity: sha512-hh2WYhq4fi8+b+/2Kg9CEge4fDPvHS534aOOvOZeQ3+Vf2mCFsaFBYj0i+iXcAq6I9Vzp5fjMFBlONvayDC1qg==}
     engines: {node: '>=6'}
@@ -5630,8 +5640,8 @@ packages:
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
-  undici@7.29.1:
-    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
+  undici@7.30.1:
+    resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==}
     engines: {node: '>=20.18.1'}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
@@ -5904,8 +5914,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.6.5:
-    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
   zustand@5.0.3:
     resolution: {integrity: sha512-14fwWQtU3pH4dE0dOpdMiWjddcH+QzKIgk1cl8epwSE7yag43k/AD/m4L6+K7DytAOr9gGBe3/EXj9g7cdostg==}
@@ -6413,15 +6423,15 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@base-org/account@2.0.1(@types/react@19.2.18)(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)':
+  '@base-org/account@2.0.1(@types/react@19.2.18)(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))':
     dependencies:
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
       eventemitter3: 5.0.1
       idb-keyval: 6.2.1
-      ox: 0.6.9(typescript@6.0.3)(zod@3.25.76)
+      ox: 0.6.9(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       preact: 10.24.2
-      viem: 2.57.7(typescript@6.0.3)(zod@3.25.76)
+      viem: 2.57.7(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       zustand: 5.0.3(@types/react@19.2.18)(react@19.2.3)(use-sync-external-store@1.7.0(react@19.2.3))
     transitivePeerDependencies:
       - '@types/react'
@@ -6442,11 +6452,11 @@ snapshots:
       - react
       - react-dom
 
-  '@clerk/clerk-js@6.40.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)':
+  '@clerk/clerk-js@6.40.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))':
     dependencies:
-      '@base-org/account': 2.0.1(@types/react@19.2.18)(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)
+      '@base-org/account': 2.0.1(@types/react@19.2.18)(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       '@clerk/shared': 4.41.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@coinbase/wallet-sdk': 4.3.7(typescript@6.0.3)(zod@3.25.76)
+      '@coinbase/wallet-sdk': 4.3.7(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       '@stripe/stripe-js': 5.6.0
       '@swc/helpers': 0.5.21
       '@tanstack/query-core': 5.104.1
@@ -6470,9 +6480,9 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@clerk/expo@4.13.1(@types/react@19.2.18)(expo-auth-session@57.0.16(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(expo-constants@57.0.22)(expo-crypto@57.0.4(expo@57.0.30))(expo-secure-store@57.0.4(expo@57.0.30))(expo-web-browser@57.0.3(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)))(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)':
+  '@clerk/expo@4.13.1(@types/react@19.2.18)(expo-auth-session@57.0.16(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(expo-constants@57.0.22)(expo-crypto@57.0.4(expo@57.0.30))(expo-secure-store@57.0.4(expo@57.0.30))(expo-web-browser@57.0.3(expo@57.0.30)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)))(expo@57.0.30)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))':
     dependencies:
-      '@clerk/clerk-js': 6.40.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76)
+      '@clerk/clerk-js': 6.40.0(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@6.0.3)(use-sync-external-store@1.7.0(react@19.2.3))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       '@clerk/react': 6.18.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@clerk/shared': 4.41.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       base-64: 1.0.0
@@ -6591,13 +6601,13 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@coinbase/wallet-sdk@4.3.7(typescript@6.0.3)(zod@3.25.76)':
+  '@coinbase/wallet-sdk@4.3.7(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))':
     dependencies:
       '@noble/hashes': 1.8.0
       clsx: 1.2.1
       eventemitter3: 5.0.4
       preact: 10.29.8
-      viem: 2.57.7(typescript@6.0.3)(zod@3.25.76)
+      viem: 2.57.7(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
     transitivePeerDependencies:
       - bufferutil
       - preact-render-to-string
@@ -6755,7 +6765,7 @@ snapshots:
       toqr: 0.1.1
       wrap-ansi: 7.0.0
       ws: 8.22.0
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
     optionalDependencies:
       expo-router: 57.0.28(4060862eaee3802e936c0acd34f5e985)
       react-native: 0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)
@@ -7235,21 +7245,21 @@ snapshots:
     transitivePeerDependencies:
       - '@faker-js/faker'
 
-  '@orval/hono@8.41.0(typescript@6.0.3)(zod@4.6.5)':
+  '@orval/hono@8.41.0(typescript@6.0.3)(zod@4.6.7)':
     dependencies:
       '@orval/core': 8.41.0
-      '@orval/zod': 8.41.0(zod@4.6.5)
+      '@orval/zod': 8.41.0(zod@4.6.7)
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:
       - '@faker-js/faker'
       - zod
 
-  '@orval/mcp@8.41.0(zod@4.6.5)':
+  '@orval/mcp@8.41.0(zod@4.6.7)':
     dependencies:
       '@orval/core': 8.41.0
       '@orval/fetch': 8.41.0
-      '@orval/zod': 8.41.0(zod@4.6.5)
+      '@orval/zod': 8.41.0(zod@4.6.7)
     transitivePeerDependencies:
       - '@faker-js/faker'
       - zod
@@ -7290,12 +7300,12 @@ snapshots:
     transitivePeerDependencies:
       - '@faker-js/faker'
 
-  '@orval/zod@8.41.0(zod@4.6.5)':
+  '@orval/zod@8.41.0(zod@4.6.7)':
     dependencies:
       '@orval/core': 8.41.0
       jsesc: 3.1.0
     optionalDependencies:
-      zod: 4.6.5
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@faker-js/faker'
 
@@ -9009,7 +9019,7 @@ snapshots:
     dependencies:
       '@scalar/helpers': 0.16.2
       pathe: 2.0.3
-      undici: 7.29.1
+      undici: 7.30.1
       yaml: 2.9.1
 
   '@scalar/json-schema-validator@0.1.11':
@@ -9050,7 +9060,7 @@ snapshots:
       '@scalar/helpers': 0.16.2
       nanoid: 5.1.16
       type-fest: 5.10.0
-      zod: 4.6.5
+      zod: 4.6.7
 
   '@scure/base@1.2.6': {}
 
@@ -9321,15 +9331,15 @@ snapshots:
 
   '@zxcvbn-ts/language-common@3.0.4': {}
 
-  abitype@1.2.3(typescript@6.0.3)(zod@3.25.76):
+  abitype@1.2.3(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     optionalDependencies:
       typescript: 6.0.3
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
-  abitype@1.3.0(typescript@6.0.3)(zod@3.25.76):
+  abitype@1.3.0(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     optionalDependencies:
       typescript: 6.0.3
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
   abort-controller@3.0.0:
     dependencies:
@@ -9362,7 +9372,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.8
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -9518,7 +9528,7 @@ snapshots:
 
   big-integer@1.6.52: {}
 
-  body-parser@2.3.0:
+  body-parser@2.4.0:
     dependencies:
       bytes: 3.1.2
       content-type: 2.1.0
@@ -9526,7 +9536,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.3
       on-finished: 2.4.1
-      qs: 6.16.0
+      qs: 6.16.1
       raw-body: 3.0.2
       type-is: 2.1.0
     transitivePeerDependencies:
@@ -9942,10 +9952,10 @@ snapshots:
       '@types/pg': 8.23.1
       pg: 8.23.1
 
-  drizzle-zod@0.8.3(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(zod@3.25.76):
+  drizzle-zod@0.8.3(drizzle-orm@0.45.4(@types/pg@8.23.1)(pg@8.23.1))(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     dependencies:
       drizzle-orm: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
   dunder-proto@1.0.1:
     dependencies:
@@ -10363,7 +10373,7 @@ snapshots:
   express@5.3.0:
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0
+      body-parser: 2.4.0
       content-disposition: 2.0.1
       content-type: 2.1.0
       cookie: 0.7.2
@@ -10411,7 +10421,7 @@ snapshots:
 
   fast-sha256@1.3.0: {}
 
-  fast-uri@3.1.8: {}
+  fast-uri@3.1.9: {}
 
   fastest-levenshtein@1.0.16: {}
 
@@ -11341,7 +11351,7 @@ snapshots:
       strip-ansi: 5.2.0
       wcwidth: 1.0.1
 
-  orval@8.41.0(@tanstack/react-query@5.104.1(react@19.2.3))(prettier@3.9.10)(swr@2.3.4(react@19.2.3))(typescript@6.0.3)(zod@4.6.5):
+  orval@8.41.0(@tanstack/react-query@5.104.1(react@19.2.3))(prettier@3.9.10)(swr@2.3.4(react@19.2.3))(typescript@6.0.3)(zod@4.6.7):
     dependencies:
       '@commander-js/extra-typings': 15.0.0(commander@15.0.0)
       '@orval/angular': 8.41.0
@@ -11349,14 +11359,14 @@ snapshots:
       '@orval/core': 8.41.0
       '@orval/effect': 8.41.0
       '@orval/fetch': 8.41.0
-      '@orval/hono': 8.41.0(typescript@6.0.3)(zod@4.6.5)
-      '@orval/mcp': 8.41.0(zod@4.6.5)
+      '@orval/hono': 8.41.0(typescript@6.0.3)(zod@4.6.7)
+      '@orval/mcp': 8.41.0(zod@4.6.7)
       '@orval/mock': 8.41.0
       '@orval/pinia-colada': 8.41.0
       '@orval/query': 8.41.0(@tanstack/react-query@5.104.1(react@19.2.3))
       '@orval/solid-start': 8.41.0
       '@orval/swr': 8.41.0(swr@2.3.4(react@19.2.3))
-      '@orval/zod': 8.41.0(zod@4.6.5)
+      '@orval/zod': 8.41.0(zod@4.6.7)
       '@scalar/json-magic': 0.15.6
       '@scalar/openapi-parser': 0.29.12
       '@scalar/openapi-types': 0.9.7
@@ -11385,7 +11395,7 @@ snapshots:
       - typescript
       - zod
 
-  ox@0.14.56(typescript@6.0.3)(zod@3.25.76):
+  ox@0.14.56(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -11393,21 +11403,21 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@6.0.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:
       - zod
 
-  ox@0.6.9(typescript@6.0.3)(zod@3.25.76):
+  ox@0.6.9(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.3.0(typescript@6.0.3)(zod@3.25.76)
+      abitype: 1.3.0(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 6.0.3
@@ -11625,6 +11635,11 @@ snapshots:
       react: 19.1.10
 
   qs@6.16.0:
+    dependencies:
+      es-define-property: 1.0.1
+      side-channel: 1.1.1
+
+  qs@6.16.1:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
@@ -12446,7 +12461,7 @@ snapshots:
 
   undici-types@7.24.6: {}
 
-  undici@7.29.1: {}
+  undici@7.30.1: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
@@ -12581,15 +12596,15 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  viem@2.57.7(typescript@6.0.3)(zod@3.25.76):
+  viem@2.57.7(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@6.0.3)(zod@3.25.76)
+      abitype: 1.2.3(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       isows: 1.0.7(ws@8.21.0)
-      ox: 0.14.56(typescript@6.0.3)(zod@3.25.76)
+      ox: 0.14.56(typescript@6.0.3)(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e))
       ws: 8.21.0
     optionalDependencies:
       typescript: 6.0.3
@@ -12700,13 +12715,13 @@ snapshots:
 
   yoctocolors@2.2.0: {}
 
-  zod-validation-error@3.5.4(zod@3.25.76):
+  zod-validation-error@3.5.4(zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)):
     dependencies:
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e)
 
-  zod@3.25.76: {}
+  zod@3.25.76(patch_hash=ae7c06ac7d068af8d536607b1a4e4b221fc30d71225d70a191e92ee801a62a4e): {}
 
-  zod@4.6.5: {}
+  zod@4.6.7: {}
 
   zustand@5.0.3(@types/react@19.2.18)(react@19.2.3)(use-sync-external-store@1.7.0(react@19.2.3)):
     optionalDependencies:

@@ -33,3 +33,14 @@ that the restored environment is still protected.
 
 **How to apply:** Keep setup fail-closed: allow one locked re-import to repair
 installed drift, then require the exploit checks to pass before continuing.
+
+Keep security fixes within the dependency's compatible major version when
+tooling depends on legacy schema and error APIs.
+
+**Why:** Zod 3 has no fixed upstream release, but Expo's CLI and existing error
+consumers still depend on it. Forcing every consumer onto Zod 4 solely to clear
+version-based warnings risks breaking mobile tooling.
+
+**How to apply:** Preserve the tested local mitigation until a compatible fixed
+release or a separately verified consumer migration is available. Clearly
+document any fail-closed input limits; do not silently remove them on upgrade.

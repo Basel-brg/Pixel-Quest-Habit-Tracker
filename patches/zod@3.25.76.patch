@@ -1,0 +1,144 @@
+diff --git a/src/v3/types.ts b/src/v3/types.ts
+index b10e84f1beb1dacdae5e01c42a223974b9e20b73..cf2404dc718f08fcab265b9f3e652066971c60c6 100644
+--- a/src/v3/types.ts
++++ b/src/v3/types.ts
+@@ -2250,6 +2250,19 @@ export class ZodArray<T extends ZodTypeAny, Cardinality extends ArrayCardinality
+       return INVALID;
+     }
+ 
++    // Bound array validation before allocating results or scheduling async work.
++    // GHSA-mrhx-c7xc-m3w5: invalid elements can amplify into unbounded issues.
++    if (ctx.data.length > 10000) {
++      addIssueToContext(ctx, {
++        code: ZodIssueCode.too_big,
++        maximum: 10000,
++        type: "array",
++        inclusive: true,
++        exact: false,
++        message: "Array exceeds the security validation limit of 10000 items",
++      });
++      return INVALID;
++    }
+     if (def.exactLength !== null) {
+       const tooBig = ctx.data.length > def.exactLength.value;
+       const tooSmall = ctx.data.length < def.exactLength.value;
+diff --git a/src/v4/core/schemas.ts b/src/v4/core/schemas.ts
+index ce16838549a39ff2522a1b6eea2b8994265f1b0f..f52bab60023bdc74e1fa298b4976504d070fd273 100644
+--- a/src/v4/core/schemas.ts
++++ b/src/v4/core/schemas.ts
+@@ -1530,6 +1530,19 @@ export const $ZodArray: core.$constructor<$ZodArray> = /*@__PURE__*/ core.$const
+       return payload;
+     }
+ 
++    // GHSA-mrhx-c7xc-m3w5: reject before issue/result/promise amplification.
++    if (input.length > 10000) {
++      payload.issues.push({
++        code: "too_big",
++        origin: "array",
++        maximum: 10000,
++        inclusive: true,
++        input,
++        inst,
++        message: "Array exceeds the security validation limit of 10000 items",
++      });
++      return payload;
++    }
+     payload.value = Array(input.length);
+     const proms: Promise<any>[] = [];
+     for (let i = 0; i < input.length; i++) {
+diff --git a/v3/types.cjs b/v3/types.cjs
+index 11ed4dfc4745f9af1f1501874576b78b77d294ef..3109da535da16d3492509b7239dc4b184b352856 100644
+--- a/v3/types.cjs
++++ b/v3/types.cjs
+@@ -1777,6 +1777,19 @@ class ZodArray extends ZodType {
+             });
+             return parseUtil_js_1.INVALID;
+         }
++        // Bound array validation before allocating results or scheduling async work.
++        // GHSA-mrhx-c7xc-m3w5: invalid elements can amplify into unbounded issues.
++        if (ctx.data.length > 10000) {
++            (0, parseUtil_js_1.addIssueToContext)(ctx, {
++                code: ZodError_js_1.ZodIssueCode.too_big,
++                maximum: 10000,
++                type: "array",
++                inclusive: true,
++                exact: false,
++                message: "Array exceeds the security validation limit of 10000 items",
++            });
++            return parseUtil_js_1.INVALID;
++        }
+         if (def.exactLength !== null) {
+             const tooBig = ctx.data.length > def.exactLength.value;
+             const tooSmall = ctx.data.length < def.exactLength.value;
+diff --git a/v3/types.js b/v3/types.js
+index 40b11c0f01b2af54e0ed48e198607bd8836d9a63..914c78a9019cde00900d0026fe24be1a9f7458be 100644
+--- a/v3/types.js
++++ b/v3/types.js
+@@ -1756,6 +1756,19 @@ export class ZodArray extends ZodType {
+             });
+             return INVALID;
+         }
++        // Bound array validation before allocating results or scheduling async work.
++        // GHSA-mrhx-c7xc-m3w5: invalid elements can amplify into unbounded issues.
++        if (ctx.data.length > 10000) {
++            addIssueToContext(ctx, {
++                code: ZodIssueCode.too_big,
++                maximum: 10000,
++                type: "array",
++                inclusive: true,
++                exact: false,
++                message: "Array exceeds the security validation limit of 10000 items",
++            });
++            return INVALID;
++        }
+         if (def.exactLength !== null) {
+             const tooBig = ctx.data.length > def.exactLength.value;
+             const tooSmall = ctx.data.length < def.exactLength.value;
+diff --git a/v4/core/schemas.cjs b/v4/core/schemas.cjs
+index 7c77d2b5af031e086d535f4b2e1898cec17eda29..555f3fd6ea5008c843b5291c34704eae1953ebb7 100644
+--- a/v4/core/schemas.cjs
++++ b/v4/core/schemas.cjs
+@@ -663,6 +663,19 @@ exports.$ZodArray = core.$constructor("$ZodArray", (inst, def) => {
+             });
+             return payload;
+         }
++        // GHSA-mrhx-c7xc-m3w5: reject before issue/result/promise amplification.
++        if (input.length > 10000) {
++            payload.issues.push({
++                code: "too_big",
++                origin: "array",
++                maximum: 10000,
++                inclusive: true,
++                input,
++                inst,
++                message: "Array exceeds the security validation limit of 10000 items",
++            });
++            return payload;
++        }
+         payload.value = Array(input.length);
+         const proms = [];
+         for (let i = 0; i < input.length; i++) {
+diff --git a/v4/core/schemas.js b/v4/core/schemas.js
+index 692ce1fc2d0e138b51b5af2bafe0e2b4a279c0bc..154aa3554cede446473083e3f82a075d67d66e5f 100644
+--- a/v4/core/schemas.js
++++ b/v4/core/schemas.js
+@@ -632,6 +632,19 @@ export const $ZodArray = /*@__PURE__*/ core.$constructor("$ZodArray", (inst, def
+             });
+             return payload;
+         }
++        // GHSA-mrhx-c7xc-m3w5: reject before issue/result/promise amplification.
++        if (input.length > 10000) {
++            payload.issues.push({
++                code: "too_big",
++                origin: "array",
++                maximum: 10000,
++                inclusive: true,
++                input,
++                inst,
++                message: "Array exceeds the security validation limit of 10000 items",
++            });
++            return payload;
++        }
+         payload.value = Array(input.length);
+         const proms = [];
+         for (let i = 0; i < input.length; i++) {
