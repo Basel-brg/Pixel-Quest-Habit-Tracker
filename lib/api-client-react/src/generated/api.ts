@@ -39,6 +39,8 @@ import type {
   QuestAssistantResult,
   QuestTask,
   Reward,
+  RewardAssistantInput,
+  RewardAssistantResult,
   RewardInput,
   RewardUpdate,
   RpgActionInput,
@@ -415,6 +417,94 @@ export const useVerifyPhoto = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getVerifyPhotoMutationOptions(options));
+    }
+
+export const getRewardAssistantUrl = () => {
+
+
+
+
+  return `/api/ai/reward-assistant`
+}
+
+/**
+ * @summary Suggest editable real-life reward gates without saving
+ */
+export const rewardAssistant = async (rewardAssistantInput: RewardAssistantInput, options?: Parameters<typeof customFetch>[1]): Promise<RewardAssistantResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RewardAssistantResult>(getRewardAssistantUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(rewardAssistantInput)
+  }
+);}
+
+
+
+
+
+export const getRewardAssistantMutationKey = () => ['rewardAssistant'] as const;
+
+export const getRewardAssistantMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewardAssistant>>, TError,RewardAssistantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rewardAssistant>>, TError,RewardAssistantMutationVariables, TContext> => {
+
+const mutationKey = getRewardAssistantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rewardAssistant>>, RewardAssistantMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  rewardAssistant(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RewardAssistantMutationResult = NonNullable<Awaited<ReturnType<typeof rewardAssistant>>>
+    export type RewardAssistantMutationBody = BodyType<RewardAssistantInput>
+    export type RewardAssistantMutationError = ErrorType<void>
+    export type RewardAssistantMutationVariables = {data: BodyType<RewardAssistantInput>}
+
+    /**
+ * @summary Suggest editable real-life reward gates without saving
+ */
+export const useRewardAssistant = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewardAssistant>>, TError,RewardAssistantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rewardAssistant>>,
+        TError,
+        RewardAssistantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRewardAssistantMutationOptions(options));
     }
 
 export const getQuestAssistantUrl = () => {

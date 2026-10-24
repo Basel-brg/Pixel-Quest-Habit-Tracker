@@ -114,7 +114,7 @@ export default function QuestsPage() {
          <form onSubmit={(e) => void save(e)} className="flex min-h-0 flex-1 flex-col">
            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 pr-1">
              <div className="space-y-3 border border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] p-3">
-               <Field label="مساعدة سحرية ✨"><div className="flex flex-col gap-2 sm:flex-row"><input dir="auto" maxLength={500} data-testid="input-quest-ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="🔍 اكتب مهمتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم" className="field min-w-0 flex-1"/><Btn testId="button-quest-ai-fill" variant="cyan" className="shrink-0" disabled={!aiPrompt.trim() || assistant.isPending || offline.online === false} onClick={() => void requestSuggestion()}>{assistant.isPending ? 'جاري التحليل...' : 'مساعدة سحرية ✨'}</Btn></div></Field>
+               <Field label="مساعدة سحرية ✨"><div className="flex flex-col gap-2 sm:flex-row"><input dir="auto" maxLength={500} data-testid="input-quest-ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="🔍 اكتب مهمتك أو عادتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم" className="field min-w-0 flex-1"/><Btn testId="button-quest-ai-fill" variant="cyan" className="shrink-0" disabled={!aiPrompt.trim() || assistant.isPending || offline.online === false} onClick={() => void requestSuggestion()}>{assistant.isPending ? 'جاري التحليل...' : 'مساعدة سحرية ✨'}</Btn></div></Field>
                {offline.online === false && <p className="text-[11px] text-[color:var(--pq-mute)]">AI suggestions need an internet connection. Manual drafts still save offline.</p>}
                {aiError && <p role="alert" data-testid="status-quest-ai-error" className="text-xs text-[color:var(--pq-danger)]">{aiError}</p>}
              </div>
@@ -133,7 +133,7 @@ export default function QuestsPage() {
              <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-quest-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">يتطلب إثباتاً بالصورة للحصول على المكافأة</span></span></label>
              {draftError && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{draftError}</p>}
            </div>
-           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5"><Btn testId="button-cancel-quest" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-quest" type="submit" disabled={isPending('saveQuest:editor')}>{isPending('saveQuest:editor') ? 'Saving...' : 'Save quest'}</Btn></div>
+           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5 pb-24 md:pb-5"><Btn testId="button-cancel-quest" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-quest" type="submit" disabled={isPending('saveQuest:editor')}>{isPending('saveQuest:editor') ? 'Saving...' : 'Save quest'}</Btn></div>
          </form></Modal>}
     </>;
   }}</Gate>;

@@ -194,6 +194,11 @@ export interface Reward {
   currentValue: number;
   progressText: string;
   status: RewardStatus;
+  conditions?: RpgCondition[];
+  claimCost?: number;
+  savingsTarget?: number;
+  savedAmount?: number;
+  savingsPerQuest?: number;
   /** @nullable */
   claimedAt: string | null;
   createdAt: string;
@@ -598,6 +603,39 @@ export interface PhotoVerificationResult {
      */
   reason: string;
   snapshot?: RpgSnapshot;
+}
+
+export interface RewardAssistantInput {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  prompt: string;
+}
+
+export interface RewardAssistantResult {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /** @maxLength 300 */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  category: string;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  requiredLevel: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  claimCost: number;
 }
 
 export type QuestAssistantInputItemType = typeof QuestAssistantInputItemType[keyof typeof QuestAssistantInputItemType];

@@ -111,6 +111,34 @@ paths:
           description: Image verification provider failed
         "503":
           description: Photo verification is not configured
+  /ai/reward-assistant:
+    post:
+      operationId: rewardAssistant
+      tags: [pixel-quest]
+      summary: Suggest editable real-life reward gates without saving
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardAssistantInput"
+      responses:
+        "200":
+          description: Editable suggestion only; no reward is saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardAssistantResult"
+        "400":
+          description: Invalid prompt
+        "401":
+          description: Sign in required
+        "429":
+          description: AI request limit reached
+        "502":
+          description: AI suggestion provider failed
+        "503":
+          description: AI suggestion service unavailable
   /ai/quest-assistant:
     post:
       operationId: questAssistant
@@ -783,6 +811,20 @@ components:
         isVerified: { type: boolean }
         reason: { type: string, minLength: 1, maxLength: 500 }
         snapshot: { $ref: "#/components/schemas/RpgSnapshot" }
+    RewardAssistantInput:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string, minLength: 1, maxLength: 500 }
+    RewardAssistantResult:
+      type: object
+      required: [title, description, category, requiredLevel, claimCost]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 300 }
+        category: { type: string, minLength: 1, maxLength: 40 }
+        requiredLevel: { type: integer, minimum: 1, maximum: 100 }
+        claimCost: { type: integer, minimum: 0, maximum: 1000000 }
     QuestAssistantInput:
       type: object
       required: [itemType, prompt]
@@ -1087,6 +1129,11 @@ components:
         currentValue: { type: integer }
         progressText: { type: string }
         status: { $ref: "#/components/schemas/RewardStatus" }
+        conditions: { type: array, items: { $ref: "#/components/schemas/RpgCondition" } }
+        claimCost: { type: integer }
+        savingsTarget: { type: number }
+        savedAmount: { type: number }
+        savingsPerQuest: { type: number }
         claimedAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }
     RewardInput:

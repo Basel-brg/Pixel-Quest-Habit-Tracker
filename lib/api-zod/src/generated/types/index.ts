@@ -50,6 +50,8 @@ export * from './questTaskDifficulty';
 export * from './questTaskStat';
 export * from './questTaskStatus';
 export * from './reward';
+export * from './rewardAssistantInput';
+export * from './rewardAssistantResult';
 export * from './rewardInput';
 export * from './rewardRuleType';
 export * from './rewardStatus';

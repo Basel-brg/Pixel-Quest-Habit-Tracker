@@ -7,6 +7,7 @@
  */
 import type { RewardRuleType } from './rewardRuleType';
 import type { RewardStatus } from './rewardStatus';
+import type { RpgCondition } from './rpgCondition';
 
 export interface Reward {
   id: number;
@@ -22,6 +23,11 @@ export interface Reward {
   currentValue: number;
   progressText: string;
   status: RewardStatus;
+  conditions?: RpgCondition[];
+  claimCost?: number;
+  savingsTarget?: number;
+  savedAmount?: number;
+  savingsPerQuest?: number;
   /** @nullable */
   claimedAt: Date | null;
   createdAt: Date;

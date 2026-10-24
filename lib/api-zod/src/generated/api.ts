@@ -11,6 +11,8 @@ import * as zod from 'zod';
 /**
  * @summary Authoritative account-scoped RPG journal, settled in the player's timezone
  */
+export const getRpgStateResponseRewardsItemOneConditionsItemTargetMax = 1000000;
+
 export const getRpgStateResponseRewardsItemTwoConditionsItemTargetMax = 1000000;
 
 
@@ -118,6 +120,18 @@ export const GetRpgStateResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(getRpgStateResponseRewardsItemOneConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 }).and(zod.object({
@@ -311,6 +325,8 @@ export const PerformRpgActionBody = zod.object({
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional()
 })
 
+export const performRpgActionResponseRewardsItemOneConditionsItemTargetMax = 1000000;
+
 export const performRpgActionResponseRewardsItemTwoConditionsItemTargetMax = 1000000;
 
 
@@ -418,6 +434,18 @@ export const PerformRpgActionResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(performRpgActionResponseRewardsItemOneConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 }).and(zod.object({
@@ -589,6 +617,8 @@ export const VerifyPhotoBody = zod.object({
 
 export const verifyPhotoResponseReasonMax = 500;
 
+export const verifyPhotoResponseSnapshotRewardsItemOneConditionsItemTargetMax = 1000000;
+
 export const verifyPhotoResponseSnapshotRewardsItemTwoConditionsItemTargetMax = 1000000;
 
 
@@ -699,6 +729,18 @@ export const VerifyPhotoResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(verifyPhotoResponseSnapshotRewardsItemOneConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 }).and(zod.object({
@@ -792,6 +834,39 @@ export const VerifyPhotoResponse = zod.object({
   "message": zod.string(),
   "effect": zod.enum(['none', 'complete', 'boss', 'reward'])
 }).optional()
+})
+
+
+/**
+ * @summary Suggest editable real-life reward gates without saving
+ */
+export const rewardAssistantBodyPromptMax = 500;
+
+
+
+export const RewardAssistantBody = zod.object({
+  "prompt": zod.string().min(1).max(rewardAssistantBodyPromptMax)
+})
+
+export const rewardAssistantResponseTitleMax = 120;
+
+export const rewardAssistantResponseDescriptionMax = 300;
+
+export const rewardAssistantResponseCategoryMax = 40;
+
+export const rewardAssistantResponseRequiredLevelMax = 100;
+
+export const rewardAssistantResponseClaimCostMin = 0;
+export const rewardAssistantResponseClaimCostMax = 1000000;
+
+
+
+export const RewardAssistantResponse = zod.object({
+  "title": zod.string().min(1).max(rewardAssistantResponseTitleMax),
+  "description": zod.string().max(rewardAssistantResponseDescriptionMax),
+  "category": zod.string().min(1).max(rewardAssistantResponseCategoryMax),
+  "requiredLevel": zod.number().int().min(1).max(rewardAssistantResponseRequiredLevelMax),
+  "claimCost": zod.number().int().min(rewardAssistantResponseClaimCostMin).max(rewardAssistantResponseClaimCostMax)
 })
 
 
@@ -1277,6 +1352,10 @@ export const GetAchievementsResponse = zod.array(GetAchievementsResponseItem)
 /**
  * @summary List reward shop items and their unlock progress
  */
+export const getRewardsResponseConditionsItemTargetMax = 1000000;
+
+
+
 export const GetRewardsResponseItem = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
@@ -1289,6 +1368,18 @@ export const GetRewardsResponseItem = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(getRewardsResponseConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})).optional(),
+  "claimCost": zod.number().int().optional(),
+  "savingsTarget": zod.number().optional(),
+  "savedAmount": zod.number().optional(),
+  "savingsPerQuest": zod.number().optional(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })
@@ -1317,6 +1408,10 @@ export const CreateRewardBody = zod.object({
   "habitId": zod.number().int().nullable()
 })
 
+export const createRewardResponseConditionsItemTargetMax = 1000000;
+
+
+
 export const CreateRewardResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
@@ -1329,6 +1424,18 @@ export const CreateRewardResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(createRewardResponseConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})).optional(),
+  "claimCost": zod.number().int().optional(),
+  "savingsTarget": zod.number().optional(),
+  "savedAmount": zod.number().optional(),
+  "savingsPerQuest": zod.number().optional(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })
@@ -1360,6 +1467,10 @@ export const UpdateRewardBody = zod.object({
   "habitId": zod.number().int().nullish()
 })
 
+export const updateRewardResponseConditionsItemTargetMax = 1000000;
+
+
+
 export const UpdateRewardResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
@@ -1372,6 +1483,18 @@ export const UpdateRewardResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(updateRewardResponseConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})).optional(),
+  "claimCost": zod.number().int().optional(),
+  "savingsTarget": zod.number().optional(),
+  "savedAmount": zod.number().optional(),
+  "savingsPerQuest": zod.number().optional(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })
@@ -1394,6 +1517,10 @@ export const ClaimRewardParams = zod.object({
   "rewardId": zod.coerce.number().int()
 })
 
+export const claimRewardResponseConditionsItemTargetMax = 1000000;
+
+
+
 export const ClaimRewardResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
@@ -1406,6 +1533,18 @@ export const ClaimRewardResponse = zod.object({
   "currentValue": zod.number().int(),
   "progressText": zod.string(),
   "status": zod.enum(['locked', 'ready', 'claimed']),
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(claimRewardResponseConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})).optional(),
+  "claimCost": zod.number().int().optional(),
+  "savingsTarget": zod.number().optional(),
+  "savedAmount": zod.number().optional(),
+  "savingsPerQuest": zod.number().optional(),
   "claimedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })

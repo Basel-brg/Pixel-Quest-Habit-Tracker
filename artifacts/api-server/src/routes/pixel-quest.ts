@@ -8,12 +8,14 @@ import {
   CreateTaskBody, UpdateTaskBody, CreateRewardBody, UpdateRewardBody, UpdatePixelQuestProfileBody,
   GetTasksQueryParams, GetHabitsQueryParams, ParseVoiceBody, ParseVoiceResponse, VerifyPhotoBody, VerifyPhotoResponse,
   QuestAssistantBody, QuestAssistantResponse,
+  RewardAssistantBody, RewardAssistantResponse,
 } from "@workspace/api-zod";
 import { runGame, GameError, type Action, type ActionOutcome } from "../lib/rpg-game";
 import { levelForXp } from "../lib/rpg-rules";
 import { decodeVoiceAudio, parseVoiceAudio, VoiceProcessingError } from "../lib/voice-intake";
 import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "../lib/photo-verification";
 import { QuestAssistantError, suggestQuestDraft } from "../lib/quest-assistant";
+import { RewardAssistantError, suggestRewardDraft } from "../lib/reward-assistant";
 import { consumeAiRequestLimit } from "../lib/ai-request-limiter";
 
 declare global { namespace Express { interface Request { pixelQuestUserId?: string } } }
@@ -70,9 +72,31 @@ router.use("/ai", async (req, res, next) => {
     req.pixelQuestUserId = user; await ensureAccount(user); next();
   } catch (e) { next(e); }
 });
+router.post("/ai/reward-assistant", async (req, res) => {
+  const parsed = RewardAssistantBody.safeParse(req.body);
+  if (!parsed.success || !parsed.data.prompt.trim()) {
+    res.status(400).json({ error: "Enter a short description of your real-life reward." });
+    return;
+  }
+  // Share the assistant budget across reward, habit and quest suggestions.
+  if (!(await consumeAiRequestLimit(uid(req), "assistant"))) {
+    res.status(429).json({ error: "Too many AI suggestions. Please wait a minute and try again." });
+    return;
+  }
+  try {
+    res.json(RewardAssistantResponse.parse(await suggestRewardDraft(parsed.data.prompt.trim())));
+  } catch (error) {
+    if (error instanceof RewardAssistantError) {
+      req.log.warn({ status: error.status }, "Reward assistant request failed");
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
 router.post("/ai/quest-assistant", async (req, res) => {
   const parsed = QuestAssistantBody.safeParse(req.body);
-  if (!parsed.success) {
+  if (!parsed.success || !parsed.data.prompt.trim()) {
     res.status(400).json({ error: "Enter a short description for a habit or quest." });
     return;
   }

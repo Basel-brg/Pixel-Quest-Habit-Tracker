@@ -254,7 +254,7 @@ export default function QuestsScreen() {
             label="وصف المهمة أو العادة"
             value={aiPrompt}
             onChangeText={setAiPrompt}
-            placeholder="🔍 اكتب مهمتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم"
+            placeholder="🔍 اكتب مهمتك أو عادتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم"
             multiline
             maxLength={500}
             style={{ minHeight: 72, textAlignVertical: 'top' }}

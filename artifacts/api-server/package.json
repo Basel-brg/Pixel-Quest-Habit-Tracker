@@ -6,7 +6,7 @@
   "scripts": {
     "test:rpg": "node ./test-rpg.mjs",
     "test:voice": "node --experimental-transform-types --test src/lib/voice-intake.test.ts",
-    "test:assistant": "node --experimental-transform-types --test src/lib/quest-assistant.test.ts",
+    "test:assistant": "node --experimental-transform-types --test src/lib/quest-assistant.test.ts src/lib/reward-assistant.test.ts",
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
