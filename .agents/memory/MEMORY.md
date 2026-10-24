@@ -9,3 +9,4 @@
 - [Voice-entry safeguards](voice-entry-safeguards.md) — voice suggestions need an editable preview and explicit approval; manual tasks and habits may queue offline.
 - [Creation assistant model](creation-assistant-model.md) — use Gemma 4 only for habit, quest and reward autofill; no Gemini fallback.
 - [Introducing account onboarding](onboarding-scope.md) — preserve established players; first-run setup is for new accounts, not a reset or repeatable welcome reward.
+- [Backdrop focus restoration](backdrop-focus.md) — cancel backdrop mousedown defaults before dismissing, or the browser can steal focus after cleanup restores the trigger.

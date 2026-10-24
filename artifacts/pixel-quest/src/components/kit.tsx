@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Shield, Sparkles, X } from 'lucide-react';
 import { useRpg } from '@/lib/rpg-context';
+import { useModalLayer } from '@/lib/use-modal-layer';
 
 export const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(' ');
 const colors = { gold: 'bg-[color:var(--pq-gold)] text-[color:var(--pq-onaccent)] hover:bg-[color:var(--pq-gold)]', quiet: 'bg-[color:var(--pq-line3)] text-[color:var(--pq-ink)] border border-[color:var(--pq-line)] hover:bg-[color:var(--pq-line2)]', cyan: 'bg-[color:var(--pq-cyan)] text-[color:var(--pq-panel2)] hover:bg-[color:var(--pq-cyan)]', danger: 'bg-[color:var(--pq-line)] text-[color:var(--pq-danger)] border border-[color:var(--pq-mute)] hover:bg-[color:var(--pq-line)]' };
@@ -20,9 +22,11 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   return <label className="block"><span className="mb-1.5 block text-xs font-bold text-[color:var(--pq-ink2)]">{label}</span>{children}{hint && <span className="mt-1 block text-[11px] text-[color:var(--pq-mute)]">{hint}</span>}</label>;
 }
 export function Modal({ title, children, onClose, wide, contentClassName }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; contentClassName?: string }) {
-  return <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain bg-[color:var(--pq-bg)]/80 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <div role="dialog" aria-modal="true" aria-label={title} className={cx('pixel-border relative my-auto w-full bg-[color:var(--pq-panel)] p-5 md:p-7', wide ? 'max-w-2xl' : 'max-w-lg', contentClassName)}>
-      <div className="mb-5 flex items-start justify-between gap-3"><h2 className="pixel-title text-[11px] text-[color:var(--pq-ink)]">{title}</h2><button type="button" data-testid="button-close-modal" aria-label="Close" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><X size={16}/></button></div><div className="mb-4 empty:hidden"><ServerError/></div>{children}</div></div>;
+  const overlay = useRef<HTMLDivElement>(null), dialog = useRef<HTMLDivElement>(null);
+  useModalLayer(overlay, dialog, onClose);
+  return createPortal(<div ref={overlay} data-testid="modal-overlay" className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain bg-[color:var(--pq-bg)]/80 p-4 text-[color:var(--pq-ink)] backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }}>
+    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={cx('pixel-border relative my-auto w-full bg-[color:var(--pq-panel)] p-5 outline-none md:p-7', wide ? 'max-w-2xl' : 'max-w-lg', contentClassName)}>
+      <div className="mb-5 flex items-start justify-between gap-3"><h2 className="pixel-title text-[11px] text-[color:var(--pq-ink)]">{title}</h2><button type="button" data-testid="button-close-modal" aria-label="Close" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><X size={16}/></button></div><div className="mb-4 empty:hidden"><ServerError/></div>{children}</div></div>, document.body);
 }
 export function Empty({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
   return <div className="border border-dashed border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] px-5 py-8 text-center"><div className="mx-auto mb-3 grid h-10 w-10 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-cyan)]"><Sparkles size={18}/></div><p className="pixel-title text-[9px] text-[color:var(--pq-gold)]">{title}</p><p className="mx-auto mt-3 max-w-xs text-sm text-[color:var(--pq-mute)]">{detail}</p>{action && <div className="mt-5">{action}</div>}</div>;

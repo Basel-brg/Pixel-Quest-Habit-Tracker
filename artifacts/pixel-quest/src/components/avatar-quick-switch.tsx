@@ -27,7 +27,7 @@ export function AvatarQuickSwitch() {
       data-testid="button-header-avatar"
       aria-label="Open avatar quick switch"
       aria-haspopup="dialog"
-      onClick={() => { clearError(); setOpen(true); }}
+      onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); clearError(); setOpen(true); }}
       className="grid h-11 w-11 shrink-0 place-items-center border-2 border-[color:var(--pq-gold)] bg-[color:var(--pq-panel2)] shadow-[3px_3px_0_var(--pq-shadow)] transition-transform hover:-translate-y-0.5"
     >
       <PixelAvatar id={profile.avatarId} size={34} testId="img-header-avatar"/>
