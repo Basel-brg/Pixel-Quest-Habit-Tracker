@@ -18,11 +18,11 @@ export class RewardAssistantError extends Error {
 /** Suggests only editable fields. This module never reads or writes game records. */
 export async function suggestRewardDraft(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new RewardAssistantError("AI suggestions are not configured.", 503);
+  if (!apiKey) throw new RewardAssistantError("Gemma 4 suggestions need the Google API key to be available to the server.", 503);
   let response: Response;
   try {
     response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent",
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -38,7 +38,7 @@ export async function suggestRewardDraft(prompt: string) {
             "Use a short description or an empty string. Do not propose savings amounts or claim the reward is saved.",
             `User text: ${JSON.stringify(prompt)}`,
           ].join("\n") }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 512, responseMimeType: "application/json" },
+          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "minimal" } },
         }),
       },
     );

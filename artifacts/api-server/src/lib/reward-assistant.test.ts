@@ -12,9 +12,11 @@ after(() => {
 
 function provider(value: unknown, status = 200) {
   process.env.GEMINI_API_KEY = "test-only-key";
-  globalThis.fetch = async (_input, init) => {
+  globalThis.fetch = async (input, init) => {
+    assert.equal(String(input), "https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent");
     const body = JSON.parse(String(init?.body));
-    assert.equal(body.generationConfig.responseMimeType, "application/json");
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+    assert.equal(body.generationConfig.responseMimeType, undefined);
     assert.equal(new Headers(init?.headers).get("x-goog-api-key"), "test-only-key");
     return new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }],

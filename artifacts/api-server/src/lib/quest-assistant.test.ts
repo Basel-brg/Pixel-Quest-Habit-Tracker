@@ -14,7 +14,10 @@ after(() => {
 function mockProvider(value: unknown) {
   process.env.GEMINI_API_KEY = "test-gemini-key";
   globalThis.fetch = async (input, init) => {
-    assert.match(String(input), /gemini-2\.5-flash:generateContent/);
+    assert.equal(String(input), "https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent");
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+    assert.equal(body.generationConfig.responseMimeType, undefined);
     assert.equal(new Headers(init?.headers).get("x-goog-api-key"), "test-gemini-key");
     return new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }],
@@ -73,7 +76,7 @@ test("malformed provider output fails explicitly instead of creating a draft", a
   );
 });
 
-test("missing Gemini configuration returns a clear service-unavailable error", async () => {
+test("missing Google configuration returns a clear service-unavailable error without using another model", async () => {
   delete process.env.GEMINI_API_KEY;
   await assert.rejects(
     suggestQuestDraft("habit", "read daily", "2026-10-24"),

@@ -86,12 +86,12 @@ export async function suggestQuestDraft(
   today: string,
 ): Promise<AssistantDraft> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new QuestAssistantError("AI suggestions are not configured.", 503);
+  if (!apiKey) throw new QuestAssistantError("Gemma 4 suggestions need the Google API key to be available to the server.", 503);
 
   let response: Response;
   try {
     response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent",
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -116,8 +116,8 @@ export async function suggestQuestDraft(
           }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 512,
-            responseMimeType: "application/json",
+            maxOutputTokens: 8192,
+            thinkingConfig: { thinkingLevel: "minimal" },
           },
         }),
         signal: AbortSignal.timeout(25_000),
