@@ -31,7 +31,7 @@ async function ensureAccount(uid: string) {
     const [profile] = await tx.select({ id: playerProfileTable.id }).from(playerProfileTable).where(eq(playerProfileTable.userId, uid));
     if (!profile) {
       const [next] = await tx.select({ id: sql<number>`COALESCE(MAX(${playerProfileTable.id}),0)+1` }).from(playerProfileTable);
-      await tx.insert(playerProfileTable).values({ id: next.id, userId: uid, xp: 0, gold: 0, lifetimeTasksVanquished: 0 });
+      await tx.insert(playerProfileTable).values({ id: next.id, userId: uid, xp: 0, gold: 0, lifetimeTasksVanquished: 0, hasCompletedOnboarding: users.length === 0 });
     }
     if (users.length) await tx.insert(playerMilestonesTable).values({ userId: uid, key: "account-created", title: "Your quest begins", description: "Created a Pixel Quest adventurer profile." }).onConflictDoNothing();
   });
@@ -314,7 +314,10 @@ router.get("/pixelquest/achievements", async (req, res) => {
 router.use((error: unknown, req: Request, res: import("express").Response, next: import("express").NextFunction) => {
   if (error instanceof GameError) { res.status(error.status).json({ error: error.message }); return; }
   if (error && typeof error === "object" && "issues" in error) { res.status(400).json({ error: "Invalid action input.", details: error.issues }); return; }
-  if (error && typeof error === "object" && "code" in error && error.code === "23505") { res.status(409).json({ error: "That value is already in use." }); return; }
+  if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+    const username = "constraint" in error && error.constraint === "pixel_quest_users_username_unique";
+    res.status(409).json({ error: username ? "That username is already taken." : "That value is already in use." }); return;
+  }
   next(error);
 });
 export default router;

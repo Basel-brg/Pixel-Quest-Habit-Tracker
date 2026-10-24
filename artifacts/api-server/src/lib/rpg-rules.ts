@@ -1,7 +1,7 @@
 export type Schedule = { frequency: string; days: number[] };
 export type HabitConfig = Schedule & { target: number; unit: string; mandatory: boolean; stat: "STR" | "INT" | "WIS"; active: boolean };
 export type HabitMeta = { created: string; title: string; versions: { date: string; config: HabitConfig }[]; values: Record<string, number> };
-export type Award = { xp: number; gold: number; stat?: "STR" | "INT" | "WIS"; active: boolean; date: string; title: string; kind: "habit" | "quest"; legacy?: boolean };
+export type Award = { xp: number; gold: number; stat?: "STR" | "INT" | "WIS"; active: boolean; date: string; title: string; kind: "habit" | "quest" | "onboarding"; legacy?: boolean };
 export type Condition = { type: "level" | "streak" | "gold"; target: number; habitId?: number | null };
 export type InventoryItem = { id: string; catalogId: string; name: string; description: string; quantity: number; equipped: boolean; requiredLevel: number; acquired: string };
 export type Boss = { id: string; name: string; taskIds: number[]; hits: number[]; defeated: boolean; hp: number; maxHp: number; bonusGold: number; loot: string };

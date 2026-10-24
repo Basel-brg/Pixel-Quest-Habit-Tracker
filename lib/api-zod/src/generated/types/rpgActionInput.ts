@@ -24,6 +24,11 @@ export interface RpgActionInput {
   requestId: string;
   action: RpgActionInputAction;
   onboardingDraft?: OnboardingDraft;
+  /**
+     * Required for draft/complete setup actions. Must match profile.onboardingRevision; stale writes return 409. Terminal complete/skip actions are idempotent even with different request IDs.
+     * @minimum 0
+     */
+  expectedOnboardingRevision?: number;
   /** @minimum 1 */
   id?: number;
   /** @maxLength 100 */

@@ -15,6 +15,8 @@ import type { ThemeId } from './themeId';
 
 export interface PlayerProfileDetails {
   hasCompletedOnboarding: boolean;
+  /** @minimum 0 */
+  onboardingRevision: number;
   onboardingDraft: OnboardingDraft;
   /** @nullable */
   heroPath: PlayerProfileDetailsHeroPath;

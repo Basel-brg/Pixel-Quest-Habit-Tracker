@@ -10,8 +10,10 @@ import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/lib/theme';
 import { THEME_IDS, THEMES } from '@/constants/themes';
 import { useHabitReminders } from '@/lib/habit-reminders';
+import { RequireOnboarded } from '@/components/OnboardingGate';
 
-export default function SettingsScreen() {
+export default function GuardedSettings() { return <RequireOnboarded><SettingsScreen/></RequireOnboarded>; }
+function SettingsScreen() {
   const { isLoaded, isSignedIn } = useAuth();
   const colors = useColors();
   const qc = useQueryClient();

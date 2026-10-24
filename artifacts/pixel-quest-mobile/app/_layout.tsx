@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThemeProvider } from '@/lib/theme';
 import { HabitRemindersProvider } from '@/lib/habit-reminders';
 import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
-import { ActivityIndicator, Pressable, View, Text } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, View, Text } from 'react-native';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,21 +27,31 @@ import * as SplashScreen from 'expo-splash-screen';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
 const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
 setBaseUrl(apiDomain ? `https://${apiDomain}` : null);
 
+/** A fresh client per identity prevents old-account requests from refilling new-account caches. */
+function AccountQueryScope() {
+  const { userId } = useAuth();
+  return <AccountQueryProvider key={userId ?? 'signed-out'}/>;
+}
+function AccountQueryProvider() {
+  const [queryClient] = useState(() => new QueryClient());
+  useEffect(() => () => queryClient.clear(), [queryClient]);
+  return <QueryClientProvider client={queryClient}><GestureHandlerRootView style={{ flex: 1 }}>
+    <KeyboardProvider><RootLayoutNav/></KeyboardProvider>
+  </GestureHandlerRootView></QueryClientProvider>;
+}
 function RootLayoutNav() {
   const { userId, getToken } = useAuth();
-  const previous = useRef<string | null | undefined>(undefined);
-  const [tokenReady, setTokenReady] = useState(false);
+  const [readyUserId, setReadyUserId] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
-    setTokenReady(true);
-    if (previous.current !== undefined && previous.current !== userId) queryClient.clear();
-    previous.current = userId;
-    return () => { setTokenReady(false); setAuthTokenGetter(null); };
+    setReadyUserId(userId ?? null);
+    return () => { setAuthTokenGetter(null); };
   }, [userId, getToken]);
+  const tokenReady = readyUserId === (userId ?? null);
+  if (!tokenReady) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator/></View>;
   return (
     <HabitRemindersProvider enabled={tokenReady}>
       <ThemeProvider key={userId ?? 'signed-out'} userId={userId} enabled={tokenReady && !!userId}>
@@ -70,6 +80,13 @@ function OnboardingGuard({ enabled }: { enabled: boolean }) {
   const area = segments[0] as string | undefined;
   const inAuth = area === '(auth)';
   const inOnboarding = area === 'onboarding';
+  // Device handoff: another client may have finished/skipped setup while we were backgrounded.
+  const refetchRef = useRef(q.refetch); refetchRef.current = q.refetch;
+  useEffect(() => {
+    if (!enabled) return;
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void refetchRef.current(); });
+    return () => sub.remove();
+  }, [enabled]);
   useEffect(() => {
     if (!enabled || !navReady || inAuth || marker === undefined) return;
     if (marker === false && !inOnboarding) router.replace('/onboarding');
@@ -108,13 +125,7 @@ export default function RootLayout() {
       <ClerkLoaded>
       <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
+        <AccountQueryScope/>
       </ErrorBoundary>
     </SafeAreaProvider>
       </ClerkLoaded>

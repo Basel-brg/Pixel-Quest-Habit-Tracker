@@ -1,8 +1,9 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { eq, sql } from "drizzle-orm";
-import { db, pool, pixelQuestUsersTable, playerProfileTable, habitsTable, habitCompletionsTable, questTasksTable } from "@workspace/db";
+import { db, pool, pixelQuestUsersTable, playerProfileTable, habitsTable, habitCompletionsTable, questTasksTable, pixelRpgStateTable } from "@workspace/db";
 import { runGame, GameError, type Action } from "./rpg-game";
 import { localDay, dayInstant, levelForXp, streaks, type HabitMeta } from "./rpg-rules";
 import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "./photo-verification";
@@ -20,7 +21,11 @@ async function account(gold = 500, xp = 0) {
   });
   return uid;
 }
-function act(uid: string, a: Omit<Action, "requestId">, now = base, requestId = randomUUID()) {
+async function act(uid: string, a: Omit<Action, "requestId">, now = base, requestId = randomUUID()) {
+  if ((a.action === "onboardingDraft" || a.action === "completeOnboarding") && a.expectedOnboardingRevision === undefined) {
+    const [p] = await db.select().from(playerProfileTable).where(eq(playerProfileTable.userId, uid));
+    a = { ...a, expectedOnboardingRevision: p.onboardingRevision };
+  }
   return runGame(uid, { ...a, requestId }, now);
 }
 const reject = (p: Promise<unknown>, status = 409) => assert.rejects(p, (e: unknown) => e instanceof GameError && e.status === status);
@@ -42,6 +47,7 @@ function setupDraft(uid: string, patch: Record<string, unknown> = {}) {
   return {
     step: 5, username: `hero_${uid.replaceAll("-", "").slice(-12)}`, themeId: "anime" as const,
     heroPath: "INT" as const, habitTitle: "قراءة 15 صفحة", habitTarget: 15, habitUnit: "صفحة",
+    habitPresetId: "read" as const, rewardPresetId: "coffee" as const,
     requiresPhotoProof: true, rewardTitle: "قهوة مميزة", rewardStreak: 3, ...patch,
   };
 }
@@ -105,11 +111,173 @@ test("skip is persistent and cannot be used to later farm starter XP", async () 
 test("onboarding meal reward keeps both the level and five-day streak gates", async () => {
   const uid = await account(0, 0);
   const s = await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, {
-    heroPath: "STR", habitTitle: "تمرين 30 دقيقة", habitTarget: 30, habitUnit: "دقيقة",
-    requiresPhotoProof: false, rewardTitle: "وجبة مفتوحة", rewardStreak: 5,
+    heroPath: "STR", habitPresetId: "workout", habitTitle: "تمرين 30 دقيقة", habitTarget: 30, habitUnit: "دقيقة",
+    requiresPhotoProof: false, rewardTitle: "وجبة مفتوحة", rewardPresetId: "meal", rewardStreak: 5,
   }) });
   assert.equal(s.profile.heroPath, "STR"); assert.equal(s.habits[0].requiresPhotoProof, false);
   assert.equal(s.rewards[0].conditions[0].target, 2); assert.equal(s.rewards[0].conditions[1].target, 5);
+});
+
+test("additive onboarding migration exempts existing registered profiles, preserves unowned rows, and is rerunnable", async () => {
+  const schema = `onboarding_test_${randomUUID().replaceAll("-", "")}`;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`CREATE SCHEMA "${schema}"`);
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
+    const migration = await readFile("../../lib/db/migrations/onboarding.sql", "utf8");
+    await client.query(migration); // Empty installations are safe before the initial schema push.
+    await client.query("CREATE TABLE pixel_quest_player (id integer PRIMARY KEY, user_id text, xp integer, gold integer)");
+    await client.query("INSERT INTO pixel_quest_player VALUES (1, NULL, 900, 800), (2, 'existing', 125, 30)");
+    await client.query(migration);
+    const rows = (await client.query("SELECT * FROM pixel_quest_player ORDER BY id")).rows;
+    assert.equal(rows[0].has_completed_onboarding, false);
+    assert.equal(rows[0].user_id, null);
+    assert.equal(rows[0].xp, 900); assert.equal(rows[0].gold, 800);
+    assert.equal(rows[1].has_completed_onboarding, true);
+    assert.equal(rows[1].xp, 125); assert.equal(rows[1].gold, 30);
+    await client.query("INSERT INTO pixel_quest_player (id, user_id, xp, gold) VALUES (3, 'new', 0, 0)");
+    await client.query(migration);
+    const fresh = (await client.query("SELECT * FROM pixel_quest_player WHERE id=3")).rows[0];
+    assert.equal(fresh.has_completed_onboarding, false);
+    assert.equal(fresh.onboarding_revision, 0);
+    assert.deepEqual(fresh.onboarding_draft, { step: 1 });
+  } finally {
+    await client.query("ROLLBACK"); client.release();
+  }
+});
+
+test("draft replacement and revisions prevent stale-device overwrites, including theme preferences", async () => {
+  const uid = await account(0, 0);
+  const first = await act(uid, { action: "onboardingDraft", expectedOnboardingRevision: 0, onboardingDraft: setupDraft(uid, { step: 3 }) });
+  assert.equal(first.profile.onboardingRevision, 1);
+  await reject(act(uid, { action: "onboardingDraft", expectedOnboardingRevision: 0, onboardingDraft: setupDraft(uid, { themeId: "cozy" }) }));
+  const second = await act(uid, { action: "onboardingDraft", expectedOnboardingRevision: 1, onboardingDraft: {
+    step: 3, username: first.profile.username, themeId: "anime", heroPath: "WIS",
+  } });
+  assert.equal(second.profile.onboardingRevision, 2);
+  assert.equal(second.profile.onboardingDraft.habitTitle, undefined);
+  assert.equal(second.profile.onboardingDraft.rewardTitle, undefined);
+  assert.equal(second.profile.heroPath, "WIS");
+  const theme = await act(uid, { action: "profile", themeId: "parchment" });
+  assert.equal(theme.profile.onboardingRevision, 3);
+  assert.equal(theme.profile.onboardingDraft.themeId, "parchment");
+  await reject(act(uid, { action: "completeOnboarding", expectedOnboardingRevision: 2, onboardingDraft: setupDraft(uid) }));
+  assert.equal((await runGame(uid)).profile.selectedTheme, "parchment");
+  await reject(runGame(uid, { action: "onboardingDraft", requestId: randomUUID(), onboardingDraft: { step: 1 } }));
+});
+
+test("draft step prerequisites, username, preset paths and reward gates are validated before entities exist", async () => {
+  const uid = await account(0, 0), other = await account();
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: { step: 2 } }), 400);
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: { step: 5, username: "Valid_Name", themeId: "cozy" } }), 400);
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, { heroPath: "STR" }) }), 400);
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, { rewardStreak: 0 }) }), 400);
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, { rewardPresetId: "meal", rewardStreak: 3 }) }), 400);
+  await reject(act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, { username: (await runGame(other)).profile.username }) }));
+  for (const patch of [{ themeId: "unknown" }, { habitPresetId: "unknown" }, { rewardPresetId: "unknown" }, { habitTitle: "x".repeat(121) }, { rewardStreak: -1 }]) {
+    await assert.rejects(act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, patch) }));
+  }
+  const s = await runGame(uid);
+  assert.equal(s.profile.onboardingRevision, 0);
+  assert.equal(s.habits.length, 0); assert.equal(s.rewards.length, 0);
+  assert.equal(s.profile.xp, 0);
+});
+
+test("a durable starter grant has no stat/Gold/completions and photo proof still gates the first habit", async () => {
+  const uid = await account(0, 0);
+  const draft = setupDraft(uid);
+  const requestId = randomUUID();
+  const first = await act(uid, { action: "completeOnboarding", expectedOnboardingRevision: 0, onboardingDraft: draft }, base, requestId);
+  const replay = await act(uid, { action: "completeOnboarding", expectedOnboardingRevision: 0, onboardingDraft: draft }, base, requestId);
+  assert.equal(replay.profile.xp, 50); assert.equal(replay.effect, "none");
+  assert.deepEqual(first.skills, { STR: 0, INT: 0, WIS: 0 });
+  assert.equal(first.habits[0].mandatory, false);
+  assert.equal(first.habits[0].frequency, "daily");
+  assert.equal(first.habits[0].progress, 0);
+  assert.equal(first.habits[0].streak, 0);
+  assert.equal(first.habits[0].completedDates.length, 0);
+  await reject(act(uid, { action: "progressHabit", id: first.habits[0].id, value: first.habits[0].target }));
+  const [stored] = await db.select().from(pixelRpgStateTable).where(eq(pixelRpgStateTable.userId, uid));
+  const journal = stored.journal as { awards: Record<string, { xp: number; gold: number; stat?: string }>; events: { kind: string }[] };
+  assert.deepEqual(journal.awards["onboarding-starter"], {
+    xp: 50, gold: 0, date: first.today, title: "Your adventure begins", kind: "onboarding", active: true,
+  });
+  assert.equal(journal.events.filter(e => e.kind === "onboarding").length, 1);
+});
+
+test("physical item defaults to level 2 only; an explicit custom streak is optional", async () => {
+  for (const streak of [undefined, 0, 9]) {
+    const uid = await account(0, 0);
+    const s = await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, {
+      rewardPresetId: "item", rewardTitle: "سماعات", rewardStreak: streak,
+    }) });
+    assert.equal(s.rewards[0].conditions.length, streak ? 2 : 1);
+    assert.equal(s.rewards[0].conditions[0].type, "level");
+    assert.equal(s.rewards[0].conditions[0].target, 2);
+    assert.equal(s.rewards[0].claimCost, 0);
+    assert.equal(s.rewards[0].savingsTarget, 0); assert.equal(s.rewards[0].savedAmount, 0);
+    if (streak) assert.equal(s.rewards[0].conditions[1].target, streak);
+  }
+});
+
+test("complete versus skip and an in-flight draft are terminal under different request IDs", async () => {
+  for (let i = 0; i < 4; i++) {
+    const uid = await account(0, 0);
+    const finish = () => act(uid, { action: "completeOnboarding", expectedOnboardingRevision: 0, onboardingDraft: setupDraft(uid) });
+    const skip = () => act(uid, { action: "skipOnboarding" });
+    await Promise.all(i % 2 ? [skip(), finish()] : [finish(), skip()]);
+    const s = await runGame(uid);
+    assert.equal(s.profile.hasCompletedOnboarding, true);
+    const completed = s.habits.length === 1;
+    assert.equal(s.profile.xp, completed ? 50 : 0);
+    assert.equal(s.rewards.length, completed ? 1 : 0);
+    const before = JSON.stringify(s.profile.onboardingDraft);
+    await act(uid, { action: "onboardingDraft", expectedOnboardingRevision: 0, onboardingDraft: { step: 1, themeId: "cozy" } });
+    await finish(); await skip();
+    const after = await runGame(uid);
+    assert.equal(after.profile.xp, s.profile.xp);
+    assert.equal(after.profile.onboardingRevision, s.profile.onboardingRevision);
+    assert.equal(JSON.stringify(after.profile.onboardingDraft), before);
+  }
+});
+
+test("onboarding reward unlock uses AND on the linked habit, not another habit's streak", async () => {
+  const uid = await account(0, 0);
+  let s = await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, { requiresPhotoProof: false, habitTarget: 1 }) });
+  const hid = s.habits[0].id, rewardId = s.rewards[0].id;
+  const other = await act(uid, { action: "saveHabit", title: "Another habit" });
+  const otherId = other.habits[0].id;
+  for (let i = 0; i < 3; i++) {
+    const now = new Date(base.getTime() + i * 86400000);
+    await act(uid, { action: "progressHabit", id: otherId }, now);
+    s = await act(uid, { action: "progressHabit", id: hid }, now);
+    if (i < 2) assert.equal(s.rewards.find(r => r.id === rewardId)!.status, "locked");
+  }
+  assert.equal(s.rewards.find(r => r.id === rewardId)!.status, "ready");
+  const gold = s.profile.gold;
+  s = await act(uid, { action: "claimReward", id: rewardId }, new Date(base.getTime() + 2 * 86400000));
+  assert.equal(s.profile.gold, gold);
+});
+
+test("racing hero names cannot commit orphan setup records, progression, or theme changes", async () => {
+  const a = await account(0, 0), b = await account(0, 0);
+  const username = `r_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
+  const results = await Promise.allSettled([a, b].map(uid => act(uid, {
+    action: "completeOnboarding", expectedOnboardingRevision: 0, onboardingDraft: setupDraft(uid, { username }),
+  })));
+  assert.equal(results.filter(r => r.status === "fulfilled").length, 1);
+  for (let i = 0; i < 2; i++) {
+    const s = await runGame([a, b][i]);
+    const won = results[i].status === "fulfilled";
+    assert.equal(s.profile.hasCompletedOnboarding, won);
+    assert.equal(s.profile.xp, won ? 50 : 0);
+    assert.equal(s.profile.gold, 0);
+    assert.equal(s.habits.length, won ? 1 : 0);
+    assert.equal(s.rewards.length, won ? 1 : 0);
+    assert.equal(s.profile.selectedTheme, won ? "anime" : "retro");
+    if (!won) assert.equal(s.profile.onboardingRevision, 0);
+  }
 });
 
 test("local-day boundaries, DST midnight lengths and level thresholds", () => {

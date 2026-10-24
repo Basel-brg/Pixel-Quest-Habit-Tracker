@@ -754,6 +754,10 @@ components:
           type: string
           enum: [saveHabit, deleteHabit, progressHabit, saveQuest, deleteQuest, completeQuest, saveReward, deleteReward, claimReward, buyItem, updateItem, deleteItem, equipItem, consumeItem, settings, drawChest, savings, profile, onboardingDraft, completeOnboarding, skipOnboarding]
         onboardingDraft: { $ref: "#/components/schemas/OnboardingDraft" }
+        expectedOnboardingRevision:
+          type: integer
+          minimum: 0
+          description: Required for draft/complete setup actions. Must match profile.onboardingRevision; stale writes return 409. Terminal complete/skip actions are idempotent even with different request IDs.
         id: { type: integer, minimum: 1 }
         itemId: { type: string, maxLength: 100 }
         title: { type: string, minLength: 1, maxLength: 120 }
@@ -791,18 +795,21 @@ components:
         themeId: { $ref: "#/components/schemas/ThemeId" }
     OnboardingDraft:
       type: object
+      description: Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.
       required: [step]
       properties:
         step: { type: integer, minimum: 1, maximum: 5 }
         username: { type: string, maxLength: 20 }
         themeId: { $ref: "#/components/schemas/ThemeId" }
         heroPath: { type: string, enum: [STR, INT, WIS] }
+        habitPresetId: { type: string, enum: [water, workout, read, study, meditate, sleep, custom] }
         habitTitle: { type: string, maxLength: 120 }
         habitTarget: { type: number, minimum: 1, maximum: 1000000 }
         habitUnit: { type: string, maxLength: 30 }
         requiresPhotoProof: { type: boolean }
         rewardTitle: { type: string, maxLength: 120 }
-        rewardStreak: { type: integer, minimum: 1, maximum: 3650 }
+        rewardPresetId: { type: string, enum: [coffee, meal, item] }
+        rewardStreak: { type: integer, minimum: 0, maximum: 3650 }
     VoiceAudioInput:
       type: object
       required: [audioBase64, mimeType]
@@ -1053,9 +1060,10 @@ components:
         achievedAt: { type: string, format: date-time }
     PlayerProfileDetails:
       type: object
-      required: [username, avatarId, selectedTheme, themeUpdatedAt, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones, hasCompletedOnboarding, onboardingDraft, heroPath]
+      required: [username, avatarId, selectedTheme, themeUpdatedAt, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones, hasCompletedOnboarding, onboardingDraft, onboardingRevision, heroPath]
       properties:
         hasCompletedOnboarding: { type: boolean }
+        onboardingRevision: { type: integer, minimum: 0 }
         onboardingDraft: { $ref: "#/components/schemas/OnboardingDraft" }
         heroPath: { type: [string, "null"], enum: [STR, INT, WIS, null] }
         username: { type: string }

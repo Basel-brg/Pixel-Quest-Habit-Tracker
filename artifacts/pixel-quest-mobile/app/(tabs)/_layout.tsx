@@ -11,6 +11,7 @@ import { useAuth } from '@clerk/expo';
 import { Redirect } from 'expo-router';
 import { useTheme } from '@/lib/theme';
 import { LoadingState } from '@/components/PixelUI';
+import { RequireOnboarded } from '@/components/OnboardingGate';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 // Keep system liquid-glass behavior while tinting native controls with the account theme.
@@ -114,8 +115,5 @@ export default function TabLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   if (!isLoaded) return <LoadingState label="Loading your save..." />;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
-  return <ClassicTabLayout />;
+  return <RequireOnboarded>{isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}</RequireOnboarded>;
 }

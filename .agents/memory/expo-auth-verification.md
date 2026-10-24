@@ -17,3 +17,9 @@ account. Never rewrite the web helper's handshake onto Expo, alter a mismatched
 account, or bypass a human-verification challenge. Keep authenticated checks
 explicitly unverified until that login succeeds. Browser persistence cannot
 prove native SecureStore or process-restart behavior.
+
+Use the dedicated Expo preview origin at `/`, not the shared web host's `/mobile/` path, when checking Expo web rendering.
+
+**Why:** The shared host can return Expo HTML but leave an empty root and failed resources even when the dedicated Expo origin renders normally. This is not evidence that native routing is broken.
+
+**How to apply:** Use the mobile artifact screenshot target or the development Expo domain; allow the initial Metro load to settle before diagnosing a blank screen. Never transfer a web-auth handshake to that origin.

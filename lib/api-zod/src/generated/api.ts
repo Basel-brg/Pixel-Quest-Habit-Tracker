@@ -11,6 +11,8 @@ import * as zod from 'zod';
 /**
  * @summary Authoritative account-scoped RPG journal, settled in the player's timezone
  */
+export const getRpgStateResponseProfileOnboardingRevisionMin = 0;
+
 export const getRpgStateResponseProfileOnboardingDraftStepMax = 5;
 
 export const getRpgStateResponseProfileOnboardingDraftUsernameMax = 20;
@@ -23,6 +25,7 @@ export const getRpgStateResponseProfileOnboardingDraftHabitUnitMax = 30;
 
 export const getRpgStateResponseProfileOnboardingDraftRewardTitleMax = 120;
 
+export const getRpgStateResponseProfileOnboardingDraftRewardStreakMin = 0;
 export const getRpgStateResponseProfileOnboardingDraftRewardStreakMax = 3650;
 
 export const getRpgStateResponseRewardsItemOneConditionsItemTargetMax = 1000000;
@@ -40,18 +43,21 @@ export const GetRpgStateResponse = zod.object({
   "stateSince": zod.string(),
   "profile": zod.object({
   "hasCompletedOnboarding": zod.boolean(),
+  "onboardingRevision": zod.number().int().min(getRpgStateResponseProfileOnboardingRevisionMin),
   "onboardingDraft": zod.object({
   "step": zod.number().int().min(1).max(getRpgStateResponseProfileOnboardingDraftStepMax),
   "username": zod.string().max(getRpgStateResponseProfileOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(getRpgStateResponseProfileOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(getRpgStateResponseProfileOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(getRpgStateResponseProfileOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(getRpgStateResponseProfileOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(getRpgStateResponseProfileOnboardingDraftRewardStreakMax).optional()
-}),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(getRpgStateResponseProfileOnboardingDraftRewardStreakMin).max(getRpgStateResponseProfileOnboardingDraftRewardStreakMax).optional()
+}).describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
   "heroPath": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
@@ -273,7 +279,10 @@ export const performRpgActionBodyOnboardingDraftHabitUnitMax = 30;
 
 export const performRpgActionBodyOnboardingDraftRewardTitleMax = 120;
 
+export const performRpgActionBodyOnboardingDraftRewardStreakMin = 0;
 export const performRpgActionBodyOnboardingDraftRewardStreakMax = 3650;
+
+export const performRpgActionBodyExpectedOnboardingRevisionMin = 0;
 
 
 export const performRpgActionBodyItemIdMax = 100;
@@ -330,13 +339,16 @@ export const PerformRpgActionBody = zod.object({
   "username": zod.string().max(performRpgActionBodyOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(performRpgActionBodyOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(performRpgActionBodyOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(performRpgActionBodyOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(performRpgActionBodyOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(performRpgActionBodyOnboardingDraftRewardStreakMax).optional()
-}).optional(),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(performRpgActionBodyOnboardingDraftRewardStreakMin).max(performRpgActionBodyOnboardingDraftRewardStreakMax).optional()
+}).optional().describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
+  "expectedOnboardingRevision": zod.number().int().min(performRpgActionBodyExpectedOnboardingRevisionMin).optional().describe('Required for draft/complete setup actions. Must match profile.onboardingRevision; stale writes return 409. Terminal complete/skip actions are idempotent even with different request IDs.'),
   "id": zod.number().int().min(1).optional(),
   "itemId": zod.string().max(performRpgActionBodyItemIdMax).optional(),
   "title": zod.string().min(1).max(performRpgActionBodyTitleMax).optional(),
@@ -379,6 +391,8 @@ export const PerformRpgActionBody = zod.object({
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional()
 })
 
+export const performRpgActionResponseProfileOnboardingRevisionMin = 0;
+
 export const performRpgActionResponseProfileOnboardingDraftStepMax = 5;
 
 export const performRpgActionResponseProfileOnboardingDraftUsernameMax = 20;
@@ -391,6 +405,7 @@ export const performRpgActionResponseProfileOnboardingDraftHabitUnitMax = 30;
 
 export const performRpgActionResponseProfileOnboardingDraftRewardTitleMax = 120;
 
+export const performRpgActionResponseProfileOnboardingDraftRewardStreakMin = 0;
 export const performRpgActionResponseProfileOnboardingDraftRewardStreakMax = 3650;
 
 export const performRpgActionResponseRewardsItemOneConditionsItemTargetMax = 1000000;
@@ -408,18 +423,21 @@ export const PerformRpgActionResponse = zod.object({
   "stateSince": zod.string(),
   "profile": zod.object({
   "hasCompletedOnboarding": zod.boolean(),
+  "onboardingRevision": zod.number().int().min(performRpgActionResponseProfileOnboardingRevisionMin),
   "onboardingDraft": zod.object({
   "step": zod.number().int().min(1).max(performRpgActionResponseProfileOnboardingDraftStepMax),
   "username": zod.string().max(performRpgActionResponseProfileOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(performRpgActionResponseProfileOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(performRpgActionResponseProfileOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(performRpgActionResponseProfileOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(performRpgActionResponseProfileOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(performRpgActionResponseProfileOnboardingDraftRewardStreakMax).optional()
-}),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(performRpgActionResponseProfileOnboardingDraftRewardStreakMin).max(performRpgActionResponseProfileOnboardingDraftRewardStreakMax).optional()
+}).describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
   "heroPath": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
@@ -699,6 +717,8 @@ export const VerifyPhotoBody = zod.object({
 
 export const verifyPhotoResponseReasonMax = 500;
 
+export const verifyPhotoResponseSnapshotProfileOnboardingRevisionMin = 0;
+
 export const verifyPhotoResponseSnapshotProfileOnboardingDraftStepMax = 5;
 
 export const verifyPhotoResponseSnapshotProfileOnboardingDraftUsernameMax = 20;
@@ -711,6 +731,7 @@ export const verifyPhotoResponseSnapshotProfileOnboardingDraftHabitUnitMax = 30;
 
 export const verifyPhotoResponseSnapshotProfileOnboardingDraftRewardTitleMax = 120;
 
+export const verifyPhotoResponseSnapshotProfileOnboardingDraftRewardStreakMin = 0;
 export const verifyPhotoResponseSnapshotProfileOnboardingDraftRewardStreakMax = 3650;
 
 export const verifyPhotoResponseSnapshotRewardsItemOneConditionsItemTargetMax = 1000000;
@@ -731,18 +752,21 @@ export const VerifyPhotoResponse = zod.object({
   "stateSince": zod.string(),
   "profile": zod.object({
   "hasCompletedOnboarding": zod.boolean(),
+  "onboardingRevision": zod.number().int().min(verifyPhotoResponseSnapshotProfileOnboardingRevisionMin),
   "onboardingDraft": zod.object({
   "step": zod.number().int().min(1).max(verifyPhotoResponseSnapshotProfileOnboardingDraftStepMax),
   "username": zod.string().max(verifyPhotoResponseSnapshotProfileOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(verifyPhotoResponseSnapshotProfileOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(verifyPhotoResponseSnapshotProfileOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(verifyPhotoResponseSnapshotProfileOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(verifyPhotoResponseSnapshotProfileOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(verifyPhotoResponseSnapshotProfileOnboardingDraftRewardStreakMax).optional()
-}),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(verifyPhotoResponseSnapshotProfileOnboardingDraftRewardStreakMin).max(verifyPhotoResponseSnapshotProfileOnboardingDraftRewardStreakMax).optional()
+}).describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
   "heroPath": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
@@ -1060,6 +1084,8 @@ export const GetPixelQuestDashboardResponse = zod.object({
 /**
  * @summary Get account profile and milestone history
  */
+export const getPixelQuestProfileResponseOnboardingRevisionMin = 0;
+
 export const getPixelQuestProfileResponseOnboardingDraftStepMax = 5;
 
 export const getPixelQuestProfileResponseOnboardingDraftUsernameMax = 20;
@@ -1072,24 +1098,28 @@ export const getPixelQuestProfileResponseOnboardingDraftHabitUnitMax = 30;
 
 export const getPixelQuestProfileResponseOnboardingDraftRewardTitleMax = 120;
 
+export const getPixelQuestProfileResponseOnboardingDraftRewardStreakMin = 0;
 export const getPixelQuestProfileResponseOnboardingDraftRewardStreakMax = 3650;
 
 
 
 export const GetPixelQuestProfileResponse = zod.object({
   "hasCompletedOnboarding": zod.boolean(),
+  "onboardingRevision": zod.number().int().min(getPixelQuestProfileResponseOnboardingRevisionMin),
   "onboardingDraft": zod.object({
   "step": zod.number().int().min(1).max(getPixelQuestProfileResponseOnboardingDraftStepMax),
   "username": zod.string().max(getPixelQuestProfileResponseOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(getPixelQuestProfileResponseOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(getPixelQuestProfileResponseOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(getPixelQuestProfileResponseOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(getPixelQuestProfileResponseOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(getPixelQuestProfileResponseOnboardingDraftRewardStreakMax).optional()
-}),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(getPixelQuestProfileResponseOnboardingDraftRewardStreakMin).max(getPixelQuestProfileResponseOnboardingDraftRewardStreakMax).optional()
+}).describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
   "heroPath": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
@@ -1139,6 +1169,8 @@ export const UpdatePixelQuestProfileBody = zod.object({
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional()
 })
 
+export const updatePixelQuestProfileResponseOnboardingRevisionMin = 0;
+
 export const updatePixelQuestProfileResponseOnboardingDraftStepMax = 5;
 
 export const updatePixelQuestProfileResponseOnboardingDraftUsernameMax = 20;
@@ -1151,24 +1183,28 @@ export const updatePixelQuestProfileResponseOnboardingDraftHabitUnitMax = 30;
 
 export const updatePixelQuestProfileResponseOnboardingDraftRewardTitleMax = 120;
 
+export const updatePixelQuestProfileResponseOnboardingDraftRewardStreakMin = 0;
 export const updatePixelQuestProfileResponseOnboardingDraftRewardStreakMax = 3650;
 
 
 
 export const UpdatePixelQuestProfileResponse = zod.object({
   "hasCompletedOnboarding": zod.boolean(),
+  "onboardingRevision": zod.number().int().min(updatePixelQuestProfileResponseOnboardingRevisionMin),
   "onboardingDraft": zod.object({
   "step": zod.number().int().min(1).max(updatePixelQuestProfileResponseOnboardingDraftStepMax),
   "username": zod.string().max(updatePixelQuestProfileResponseOnboardingDraftUsernameMax).optional(),
   "themeId": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']).optional(),
   "heroPath": zod.enum(['STR', 'INT', 'WIS']).optional(),
+  "habitPresetId": zod.enum(['water', 'workout', 'read', 'study', 'meditate', 'sleep', 'custom']).optional(),
   "habitTitle": zod.string().max(updatePixelQuestProfileResponseOnboardingDraftHabitTitleMax).optional(),
   "habitTarget": zod.number().min(1).max(updatePixelQuestProfileResponseOnboardingDraftHabitTargetMax).optional(),
   "habitUnit": zod.string().max(updatePixelQuestProfileResponseOnboardingDraftHabitUnitMax).optional(),
   "requiresPhotoProof": zod.boolean().optional(),
   "rewardTitle": zod.string().max(updatePixelQuestProfileResponseOnboardingDraftRewardTitleMax).optional(),
-  "rewardStreak": zod.number().int().min(1).max(updatePixelQuestProfileResponseOnboardingDraftRewardStreakMax).optional()
-}),
+  "rewardPresetId": zod.enum(['coffee', 'meal', 'item']).optional(),
+  "rewardStreak": zod.number().int().min(updatePixelQuestProfileResponseOnboardingDraftRewardStreakMin).max(updatePixelQuestProfileResponseOnboardingDraftRewardStreakMax).optional()
+}).describe('Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.'),
   "heroPath": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "username": zod.string(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),

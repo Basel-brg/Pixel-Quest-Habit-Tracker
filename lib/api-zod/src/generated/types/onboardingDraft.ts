@@ -5,9 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OnboardingDraftHabitPresetId } from './onboardingDraftHabitPresetId';
 import type { OnboardingDraftHeroPath } from './onboardingDraftHeroPath';
+import type { OnboardingDraftRewardPresetId } from './onboardingDraftRewardPresetId';
 import type { ThemeId } from './themeId';
 
+/**
+ * Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.
+ */
 export interface OnboardingDraft {
   /**
      * @minimum 1
@@ -18,6 +23,7 @@ export interface OnboardingDraft {
   username?: string;
   themeId?: ThemeId;
   heroPath?: OnboardingDraftHeroPath;
+  habitPresetId?: OnboardingDraftHabitPresetId;
   /** @maxLength 120 */
   habitTitle?: string;
   /**
@@ -30,8 +36,9 @@ export interface OnboardingDraft {
   requiresPhotoProof?: boolean;
   /** @maxLength 120 */
   rewardTitle?: string;
+  rewardPresetId?: OnboardingDraftRewardPresetId;
   /**
-     * @minimum 1
+     * @minimum 0
      * @maximum 3650
      */
   rewardStreak?: number;

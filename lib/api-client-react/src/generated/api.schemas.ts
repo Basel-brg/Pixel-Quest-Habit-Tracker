@@ -312,6 +312,31 @@ export const OnboardingDraftHeroPath = {
   WIS: 'WIS',
 } as const;
 
+export type OnboardingDraftHabitPresetId = typeof OnboardingDraftHabitPresetId[keyof typeof OnboardingDraftHabitPresetId];
+
+
+export const OnboardingDraftHabitPresetId = {
+  water: 'water',
+  workout: 'workout',
+  read: 'read',
+  study: 'study',
+  meditate: 'meditate',
+  sleep: 'sleep',
+  custom: 'custom',
+} as const;
+
+export type OnboardingDraftRewardPresetId = typeof OnboardingDraftRewardPresetId[keyof typeof OnboardingDraftRewardPresetId];
+
+
+export const OnboardingDraftRewardPresetId = {
+  coffee: 'coffee',
+  meal: 'meal',
+  item: 'item',
+} as const;
+
+/**
+ * Account-owned full replacement draft, never a partial merge. Omitted fields are cleared. Advancing steps requires all earlier selections. Saving never creates game entities or grants XP.
+ */
 export interface OnboardingDraft {
   /**
      * @minimum 1
@@ -322,6 +347,7 @@ export interface OnboardingDraft {
   username?: string;
   themeId?: ThemeId;
   heroPath?: OnboardingDraftHeroPath;
+  habitPresetId?: OnboardingDraftHabitPresetId;
   /** @maxLength 120 */
   habitTitle?: string;
   /**
@@ -334,8 +360,9 @@ export interface OnboardingDraft {
   requiresPhotoProof?: boolean;
   /** @maxLength 120 */
   rewardTitle?: string;
+  rewardPresetId?: OnboardingDraftRewardPresetId;
   /**
-     * @minimum 1
+     * @minimum 0
      * @maximum 3650
      */
   rewardStreak?: number;
@@ -388,6 +415,8 @@ export interface PlayerMilestone {
 
 export interface PlayerProfileDetails {
   hasCompletedOnboarding: boolean;
+  /** @minimum 0 */
+  onboardingRevision: number;
   onboardingDraft: OnboardingDraft;
   /** @nullable */
   heroPath: PlayerProfileDetailsHeroPath;
@@ -516,6 +545,11 @@ export interface RpgActionInput {
   requestId: string;
   action: RpgActionInputAction;
   onboardingDraft?: OnboardingDraft;
+  /**
+     * Required for draft/complete setup actions. Must match profile.onboardingRevision; stale writes return 409. Terminal complete/skip actions are idempotent even with different request IDs.
+     * @minimum 0
+     */
+  expectedOnboardingRevision?: number;
   /** @minimum 1 */
   id?: number;
   /** @maxLength 100 */

@@ -108,6 +108,20 @@ export const rewardsTable = pgTable("pixel_quest_rewards", {
     .defaultNow(),
 });
 
+export interface AccountOnboardingDraft {
+  step: number;
+  username?: string;
+  themeId?: "retro" | "anime" | "cyberpunk" | "parchment" | "brutalist" | "cozy";
+  heroPath?: "STR" | "INT" | "WIS";
+  habitPresetId?: "water" | "workout" | "read" | "study" | "meditate" | "sleep" | "custom";
+  habitTitle?: string;
+  habitTarget?: number;
+  habitUnit?: string;
+  requiresPhotoProof?: boolean;
+  rewardPresetId?: "coffee" | "meal" | "item";
+  rewardTitle?: string;
+  rewardStreak?: number;
+}
 export const playerProfileTable = pgTable(
   "pixel_quest_player",
   {
@@ -118,7 +132,8 @@ export const playerProfileTable = pgTable(
     xp: integer("xp").notNull().default(0),
     gold: integer("gold").notNull().default(0),
     hasCompletedOnboarding: boolean("has_completed_onboarding").notNull().default(false),
-    onboardingDraft: jsonb("onboarding_draft").$type<Record<string, unknown>>().notNull().default(sql`'{"step":1}'::jsonb`),
+    onboardingDraft: jsonb("onboarding_draft").$type<AccountOnboardingDraft>().notNull().default(sql`'{"step":1}'::jsonb`),
+    onboardingRevision: integer("onboarding_revision").notNull().default(0),
     heroPath: text("hero_path").$type<"STR" | "INT" | "WIS">(),
     lifetimeTasksVanquished: integer("lifetime_tasks_vanquished")
       .notNull()

@@ -13,6 +13,7 @@ An account-based, retro habit tracker that turns real discipline into character 
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- Run `pnpm --filter @workspace/db run migrate:onboarding` **before** schema push on older databases. It exempts existing owned accounts; pushing columns first would lose that distinction. The post-merge script preserves this order.
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack

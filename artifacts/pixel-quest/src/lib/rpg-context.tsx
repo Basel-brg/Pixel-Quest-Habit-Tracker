@@ -10,7 +10,7 @@ export type ActionInput = Omit<RpgActionInput, 'requestId'>;
 export interface RunOptions { optimistic?: (s: RpgSnapshot) => RpgSnapshot; key?: string; requestId?: string }
 interface Celebration { id: number; kind: 'boss' | 'reward'; text: string }
 interface RpgCtx {
-  snap: RpgSnapshot | undefined; isLoading: boolean; isError: boolean; refetch: () => void;
+  snap: RpgSnapshot | undefined; /** Live server data only — never the local cache. Use for completion gating. */ serverSnap: RpgSnapshot | undefined; isLoading: boolean; isError: boolean; refetch: () => void;
   run: (input: ActionInput, opts?: RunOptions) => Promise<RpgSnapshot | null>;
   isPending: (key: string) => boolean; anyPending: boolean;
   error: string; clearError: () => void; notice: string; userId: string | null;
@@ -188,11 +188,11 @@ export function RpgProvider({ children }: { children: ReactNode }) {
   }, [qc, qk, detectUnlock, celebrate, enqueueShare]);
 
   const value = useMemo<RpgCtx>(() => ({
-    snap, isLoading: !snap && !q.isError && !!isSignedIn, isError: !snap && q.isError, refetch: () => void q.refetch(),
+    snap, serverSnap: q.data, isLoading: !snap && !q.isError && !!isSignedIn, isError: q.isError, refetch: () => void q.refetch(),
      run, isPending: () => pending.size > 0, anyPending: pending.size > 0, error, clearError: () => setError(''), notice, userId,
      shareMilestone: shareQueue[0] ?? null, dismissShareMilestone, openPlayerCard,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, q.isError, isSignedIn, run, pending, error, notice, userId, shareQueue, dismissShareMilestone, openPlayerCard]);
+  }), [snap, q.data, q.isError, isSignedIn, run, pending, error, notice, userId, shareQueue, dismissShareMilestone, openPlayerCard]);
 
   return <Ctx.Provider value={value}>{children}
     {celebration && <div key={celebration.id} data-testid="celebration" aria-live="polite" className="pointer-events-none fixed inset-0 z-[60] overflow-hidden">

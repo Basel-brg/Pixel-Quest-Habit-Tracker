@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, habitsTable, habitCompletionsTable, questTasksTable, rewardsTable, pixelQuestUsersTable, playerProfileTable, playerMilestonesTable, pixelRpgStateTable } from "@workspace/db";
 import { PerformRpgActionBody, GetRpgStateResponse } from "@workspace/api-zod";
+import { OnboardingValidationError, validateOnboardingDraft } from "./onboarding";
 import { addDays, localDay, dayInstant, configOn, scheduled, dayStatus, streaks, levelForXp, xpAmount, validTimezone, AVATARS, CATALOG, CHEST_PRIZES, RULES, XP, GOLD, type Journal, type HabitConfig, type Condition, type Award } from "./rpg-rules";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -154,7 +155,7 @@ class Game {
     const level = levelForXp(this.player.xp).level;
     const habitStreaks = this.habits.map(h => { const s = streaks(this.j.habits[h.id], this.today, this.j.protections, h.id); return { habitId: h.id, habitTitle: h.title, currentStreak: s.current, highestStreak: s.best }; });
     const milestones = await this.tx.select().from(playerMilestonesTable).where(eq(playerMilestonesTable.userId, this.uid)).orderBy(desc(playerMilestonesTable.achievedAt));
-    const profile = { username: this.user.username, avatarId: this.user.selectedAvatar, selectedTheme: this.user.selectedTheme, themeUpdatedAt: this.user.themeUpdatedAt.toISOString(), xp: this.player.xp, gold: this.player.gold, level, lifetimeTasksVanquished: this.player.lifetimeTasksVanquished, hasCompletedOnboarding: this.player.hasCompletedOnboarding, onboardingDraft: this.player.onboardingDraft, heroPath: this.player.heroPath, highestHabitStreak: Math.max(0, ...habitStreaks.map(h => h.highestStreak)), habitStreaks, avatars: AVATARS.map(a => ({ ...a, unlocked: level >= a.requiredLevel })), milestones: milestones.map(m => ({ id: m.key, title: m.title, description: m.description, achievedAt: m.achievedAt.toISOString() })) };
+    const profile = { username: this.user.username, avatarId: this.user.selectedAvatar, selectedTheme: this.user.selectedTheme, themeUpdatedAt: this.user.themeUpdatedAt.toISOString(), xp: this.player.xp, gold: this.player.gold, level, lifetimeTasksVanquished: this.player.lifetimeTasksVanquished, hasCompletedOnboarding: this.player.hasCompletedOnboarding, onboardingDraft: this.player.onboardingDraft, onboardingRevision: this.player.onboardingRevision, heroPath: this.player.heroPath, highestHabitStreak: Math.max(0, ...habitStreaks.map(h => h.highestStreak)), habitStreaks, avatars: AVATARS.map(a => ({ ...a, unlocked: level >= a.requiredLevel })), milestones: milestones.map(m => ({ id: m.key, title: m.title, description: m.description, achievedAt: m.achievedAt.toISOString() })) };
     const skills = { STR: 0, INT: 0, WIS: 0 };
     for (const a of Object.values(this.j.awards)) if (a.active && a.stat) skills[a.stat]++;
     const dayOfWeek = new Date(`${this.today}T12:00:00Z`).getUTCDay(), monday = addDays(this.today, -((dayOfWeek + 6) % 7));
@@ -195,15 +196,27 @@ class Game {
         }
         if (a.action === "skipOnboarding") {
           this.player.hasCompletedOnboarding = true;
+          this.player.onboardingRevision++;
           this.message = "Setup skipped. Your adventure is ready.";
           break;
         }
+        if (a.expectedOnboardingRevision !== this.player.onboardingRevision) {
+          fail("Setup changed on another device. Reload the saved setup before trying again.");
+        }
         if (!a.onboardingDraft) fail("Provide your setup progress.", 400);
-        const draft = PerformRpgActionBody.shape.onboardingDraft.unwrap().parse({
-          ...this.player.onboardingDraft, ...a.onboardingDraft,
-        });
+        let draft;
+        try {
+          draft = await validateOnboardingDraft(this.tx, this.uid,
+            PerformRpgActionBody.shape.onboardingDraft.unwrap().parse(a.onboardingDraft),
+            a.action === "completeOnboarding");
+        } catch (e) {
+          if (e instanceof OnboardingValidationError) fail(e.message, /taken/.test(e.message) ? 409 : 400);
+          throw e;
+        }
         if (a.action === "onboardingDraft") {
           this.player.onboardingDraft = draft;
+          this.player.heroPath = draft.heroPath ?? null;
+          this.player.onboardingRevision++;
           if (draft.themeId && draft.themeId !== this.user.selectedTheme) {
             this.user.selectedTheme = draft.themeId;
             this.user.themeUpdatedAt = this.now;
@@ -229,14 +242,16 @@ class Game {
         const habitId = this.habits[0].id;
         await this.action({
           action: "saveReward", requestId: a.requestId, title: draft.rewardTitle.trim(), category: "Personal",
-          conditions: [{ type: "level", target: 2 }, { type: "streak", target: draft.rewardStreak ?? 3, habitId }],
+          conditions: [{ type: "level", target: 2 }, ...(draft.rewardStreak ? [{ type: "streak" as const, target: draft.rewardStreak, habitId }] : [])],
           claimCost: 0, savingsTarget: 0, savedAmount: 0, savingsPerQuest: 0,
         });
         this.player.heroPath = draft.heroPath;
         this.player.onboardingDraft = { ...draft, step: 5 };
+        this.player.onboardingRevision++;
         this.player.hasCompletedOnboarding = true;
-        this.player.xp += 50;
-        this.event("onboarding", "Your adventure begins", 50);
+        await this.grant("onboarding-starter", {
+          xp: 50, gold: 0, date: this.today, title: "Your adventure begins", kind: "onboarding",
+        });
         await this.tx.insert(playerMilestonesTable).values({
           userId: this.uid, key: "onboarding-completed", title: "Your adventure begins",
           description: "Forged your first habit and real-life reward. Earned 50 starter XP.", achievedAt: this.now,
@@ -417,6 +432,10 @@ class Game {
         if (a.themeId !== undefined && a.themeId !== this.user.selectedTheme) {
           this.user.selectedTheme = a.themeId;
           this.user.themeUpdatedAt = this.now;
+          if (!this.player.hasCompletedOnboarding && a.action === "profile") {
+            this.player.onboardingDraft = { ...this.player.onboardingDraft, themeId: a.themeId };
+            this.player.onboardingRevision++;
+          }
         }
         if (a.username !== undefined) {
           const [taken] = await this.tx.select({ id: pixelQuestUsersTable.id }).from(pixelQuestUsersTable).where(sql`lower(${pixelQuestUsersTable.username}) = lower(${a.username}) AND ${pixelQuestUsersTable.id} <> ${this.uid}`);
@@ -522,7 +541,7 @@ export async function runGame(uid: string, input?: Action, now = new Date(), out
       outcome.multiplier = outcome.xpEarned ? outcome.xpEarned / baseXp : 1;
     }
     for (const a of AVATARS) if (levelBefore < a.requiredLevel && level >= a.requiredLevel) await tx.insert(playerMilestonesTable).values({ userId: uid, key: `level-${a.requiredLevel}`, title: `Level ${a.requiredLevel}: ${a.name} unlocked`, description: a.description, achievedAt: now }).onConflictDoNothing();
-    await tx.update(playerProfileTable).set({ xp: player.xp, gold: player.gold, lifetimeTasksVanquished: player.lifetimeTasksVanquished, hasCompletedOnboarding: player.hasCompletedOnboarding, onboardingDraft: player.onboardingDraft, heroPath: player.heroPath }).where(eq(playerProfileTable.userId, uid));
+    await tx.update(playerProfileTable).set({ xp: player.xp, gold: player.gold, lifetimeTasksVanquished: player.lifetimeTasksVanquished, hasCompletedOnboarding: player.hasCompletedOnboarding, onboardingDraft: player.onboardingDraft, onboardingRevision: player.onboardingRevision, heroPath: player.heroPath }).where(eq(playerProfileTable.userId, uid));
     await tx.update(pixelQuestUsersTable).set({ username: user.username, selectedAvatar: user.selectedAvatar, selectedTheme: user.selectedTheme, themeUpdatedAt: user.themeUpdatedAt }).where(eq(pixelQuestUsersTable.id, uid));
     await tx.insert(pixelRpgStateTable).values({ userId: uid, journal: j, updatedAt: now }).onConflictDoUpdate({ target: pixelRpgStateTable.userId, set: { journal: j, updatedAt: now } });
     return game.snapshot();
