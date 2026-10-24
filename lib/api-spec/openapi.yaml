@@ -51,6 +51,34 @@ paths:
           description: Owned resource not found
         "409":
           description: Action not currently eligible
+  /pixelquest/voice/parse:
+    post:
+      operationId: parseVoice
+      tags: [pixel-quest]
+      summary: Transcribe a short recording and extract tasks and habits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceAudioInput"
+      responses:
+        "200":
+          description: Temporary transcription and structured task/habit suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceParseResult"
+        "400":
+          description: Unsupported or invalid audio
+        "401":
+          description: Sign in required
+        "429":
+          description: Voice request limit reached
+        "502":
+          description: Speech or parsing provider failed
+        "503":
+          description: Voice processing is not configured
   /healthz:
     get:
       operationId: healthCheck
@@ -668,6 +696,49 @@ components:
         username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
         themeId: { $ref: "#/components/schemas/ThemeId" }
+    VoiceAudioInput:
+      type: object
+      required: [audioBase64, mimeType]
+      properties:
+        audioBase64: { type: string, minLength: 1, maxLength: 8400000 }
+        mimeType:
+          type: string
+          enum: [audio/webm, audio/mp4, audio/m4a, audio/aac, audio/ogg, audio/wav, audio/mpeg]
+    VoiceTask:
+      type: object
+      required: [title, confidence]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        category: { type: string, maxLength: 40 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        priority: { type: boolean }
+        dueDate: { type: ["string", "null"] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    VoiceHabit:
+      type: object
+      required: [title, confidence]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        category: { type: string, maxLength: 40 }
+        frequency: { type: string, enum: [daily, weekly] }
+        days:
+          type: array
+          maxItems: 7
+          items: { type: integer, minimum: 0, maximum: 6 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    VoiceParseResult:
+      type: object
+      required: [transcript, tasks, habits]
+      properties:
+        transcript: { type: string, maxLength: 4000 }
+        tasks:
+          type: array
+          maxItems: 12
+          items: { $ref: "#/components/schemas/VoiceTask" }
+        habits:
+          type: array
+          maxItems: 12
+          items: { $ref: "#/components/schemas/VoiceHabit" }
     HealthStatus:
       type: object
       properties:

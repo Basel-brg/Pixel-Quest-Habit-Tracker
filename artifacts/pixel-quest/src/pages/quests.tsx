@@ -3,6 +3,8 @@ import { Check, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import type { RpgQuest, RpgActionInputDifficulty, RpgActionInputType } from '@workspace/api-client-react';
 import { Btn, Empty, Field, Gate, Modal, PageHead, Panel, cx, fmtDate } from '@/components/kit';
 import { useRpg } from '@/lib/rpg-context';
+import { useOfflineDrafts } from '@/lib/offline-drafts';
+import { OfflineDraftList } from '@/components/offline-draft-list';
 
 interface Draft { id?: number; title: string; category: string; difficulty: RpgActionInputDifficulty; priority: boolean; dueDate: string; tags: string; type: RpgActionInputType }
 const blank: Draft = { title: '', category: 'General', difficulty: 'easy', priority: false, dueDate: '', tags: '', type: 'single' };
@@ -10,14 +12,25 @@ const diffColor = { easy: 'text-[color:var(--pq-cyan)]', medium: 'text-[color:va
 
 export default function QuestsPage() {
   const { run, isPending } = useRpg();
+  const offline = useOfflineDrafts();
   const [status, setStatus] = useState<'active' | 'completed' | 'all'>('active'); const [diff, setDiff] = useState('all'); const [type, setType] = useState('all'); const [tag, setTag] = useState('all');
   const [draft, setDraft] = useState<Draft | null>(null);
-  const open = (q?: RpgQuest) => setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type } : blank);
+  const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState('');
+  const open = (q?: RpgQuest) => { setOfflineDraftId(null); setDraftError(''); setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type } : blank); };
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
     const tags = [...new Set(draft.tags.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 10);
-    const r = await run({ action: 'saveQuest', id: draft.id, title: draft.title.trim(), category: draft.category.trim() || 'General', difficulty: draft.difficulty, priority: draft.priority, dueDate: draft.dueDate || null, tags, type: draft.type }, { key: 'saveQuest:editor' });
-    if (r) setDraft(null);
+    const input = { action: 'saveQuest' as const, id: draft.id, title: draft.title.trim(), category: draft.category.trim() || 'General', difficulty: draft.difficulty, priority: draft.priority, dueDate: draft.dueDate || null, tags, type: draft.type };
+    if (draft.id && !offline.online) { setDraftError('Editing an existing quest requires an internet connection.'); return; }
+    if (draft.id) {
+      const result = await run(input, { key: 'saveQuest:editor' });
+      if (result) setDraft(null);
+      return;
+    }
+    const saved = offlineDraftId ? offline.update(offlineDraftId, input) : offline.add(input);
+    if (saved) { setDraft(null); setOfflineDraftId(null); setDraftError(''); }
+    else setDraftError(offline.storageError || 'Could not save this quest draft on the device.');
   };
   const upd = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const chip = (on: boolean) => cx('border px-3 py-2 text-xs font-bold capitalize', on ? 'border-[color:var(--pq-gold)] bg-[color:var(--pq-line2)] text-[color:var(--pq-gold)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]');
@@ -26,6 +39,22 @@ export default function QuestsPage() {
     const list = s.quests.filter((q) => (status === 'all' || q.status === status) && (diff === 'all' || q.difficulty === diff) && (type === 'all' || q.type === type) && (tag === 'all' || q.tags.includes(tag)));
     return <>
       <PageHead eyebrow="One step at a time" title="Quest board" sub="Easy 10 XP / 5 G, medium 25 / 15, hard 50 / 35. The payout freezes the first time you complete a quest." action={<Btn testId="button-add-quest" onClick={() => open()}><Plus size={16}/> New quest</Btn>}/>
+      {offline.storageError && <p data-testid="status-offline-storage-error" role="alert" className="text-xs text-[color:var(--pq-danger)]">{offline.storageError}</p>}
+      {draftError && <p data-testid="status-quest-draft-error" role="alert" className="text-xs text-[color:var(--pq-danger)]">{draftError}</p>}
+      <OfflineDraftList kind="task" drafts={offline.drafts} onRetry={offline.retry} onRemove={offline.remove} onEdit={(item) => {
+        const input = item.input;
+        setOfflineDraftId(item.id);
+        setDraftError('');
+        setDraft({
+          title: input.title ?? '',
+          category: input.category ?? 'General',
+          difficulty: input.difficulty ?? 'easy',
+          priority: input.priority ?? false,
+          dueDate: input.dueDate ?? '',
+          tags: input.tags?.join(', ') ?? '',
+          type: input.type ?? 'single',
+        });
+      }}/>
       <Panel>
         <div className="space-y-3 border-b border-[color:var(--pq-line3)] pb-5">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Status">{(['active', 'completed', 'all'] as const).map((x) => <button key={x} data-testid={`filter-status-${x}`} aria-pressed={status === x} onClick={() => setStatus(x)} className={chip(status === x)}>{x}</button>)}</div>

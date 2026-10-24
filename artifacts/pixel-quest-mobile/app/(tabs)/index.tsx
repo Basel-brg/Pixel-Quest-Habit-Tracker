@@ -7,6 +7,7 @@ import { dateKey, invalidatePixelQuest, isHabitScheduledToday, localDateKey } fr
 import { EmptyState, ErrorState, LoadingState, MetaText, Panel, PixelBar, PixelPage, ScreenTitle, SectionHeading } from '@/components/PixelUI';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
+import { VoiceCapture } from '@/components/VoiceCapture';
 
 const difficultyColor = {
   easy: 'success',
@@ -136,6 +137,8 @@ export default function TodayScreen() {
         subtitle="One good move at a time."
         trailing={<PixelAvatar />}
       />
+
+      <VoiceCapture />
 
       <Panel>
         <View style={styles.playerTop}>

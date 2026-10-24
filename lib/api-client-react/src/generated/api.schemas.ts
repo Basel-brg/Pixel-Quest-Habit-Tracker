@@ -495,6 +495,95 @@ export interface RpgActionInput {
   themeId?: ThemeId;
 }
 
+export type VoiceAudioInputMimeType = typeof VoiceAudioInputMimeType[keyof typeof VoiceAudioInputMimeType];
+
+
+export const VoiceAudioInputMimeType = {
+  'audio/webm': 'audio/webm',
+  'audio/mp4': 'audio/mp4',
+  'audio/m4a': 'audio/m4a',
+  'audio/aac': 'audio/aac',
+  'audio/ogg': 'audio/ogg',
+  'audio/wav': 'audio/wav',
+  'audio/mpeg': 'audio/mpeg',
+} as const;
+
+export interface VoiceAudioInput {
+  /**
+     * @minLength 1
+     * @maxLength 8400000
+     */
+  audioBase64: string;
+  mimeType: VoiceAudioInputMimeType;
+}
+
+export type VoiceTaskDifficulty = typeof VoiceTaskDifficulty[keyof typeof VoiceTaskDifficulty];
+
+
+export const VoiceTaskDifficulty = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+} as const;
+
+export interface VoiceTask {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /** @maxLength 40 */
+  category?: string;
+  difficulty?: VoiceTaskDifficulty;
+  priority?: boolean;
+  /** @nullable */
+  dueDate?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+}
+
+export type VoiceHabitFrequency = typeof VoiceHabitFrequency[keyof typeof VoiceHabitFrequency];
+
+
+export const VoiceHabitFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+} as const;
+
+export interface VoiceHabit {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /** @maxLength 40 */
+  category?: string;
+  frequency?: VoiceHabitFrequency;
+  /**
+     * @maxItems 7
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  days?: number[];
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+}
+
+export interface VoiceParseResult {
+  /** @maxLength 4000 */
+  transcript: string;
+  /** @maxItems 12 */
+  tasks: VoiceTask[];
+  /** @maxItems 12 */
+  habits: VoiceHabit[];
+}
+
 export interface HealthStatus {
   status: string;
 }

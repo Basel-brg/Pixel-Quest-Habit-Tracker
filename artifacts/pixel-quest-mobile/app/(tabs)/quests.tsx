@@ -3,7 +3,6 @@ import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useCompleteTask,
-  useCreateTask,
   useDeleteTask,
   useGetTasks,
   useUndoTaskCompletion,
@@ -15,6 +14,7 @@ import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
 import { invalidatePixelQuest } from '@/lib/pixel-quest';
+import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
 import {
   ChoiceChip,
   EmptyState,
@@ -41,8 +41,8 @@ function xpReward(difficulty: QuestTaskDifficulty): number {
 export default function QuestsScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
+  const offline = useOfflineDrafts();
   const tasksQuery = useGetTasks({ status: 'all' });
-  const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const completeTask = useCompleteTask();
@@ -51,6 +51,9 @@ export default function QuestsScreen() {
   const [difficultyFilter, setDifficultyFilter] = useState<'all' | QuestTaskDifficulty>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftError, setDraftError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -67,6 +70,8 @@ export default function QuestsScreen() {
   const clearForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setOfflineDraftId(null);
+    setDraftError('');
     setTitle('');
     setCategory('');
     setDifficulty('medium');
@@ -79,19 +84,8 @@ export default function QuestsScreen() {
     clearForm();
   };
 
-  if (tasksQuery.isLoading) {
+  if (tasksQuery.isLoading && offline.online !== false) {
     return <PixelPage keyboard><LoadingState label="Loading your quest board..." /></PixelPage>;
-  }
-  if (tasksQuery.error) {
-    return (
-      <PixelPage keyboard>
-        <ScreenTitle eyebrow="QUEST BOARD" title="QUESTS" subtitle="Choose your next challenge." />
-        <ErrorState
-          message={tasksQuery.error instanceof Error ? tasksQuery.error.message : 'Could not load your quests.'}
-          retry={() => void tasksQuery.refetch()}
-        />
-      </PixelPage>
-    );
   }
 
   const beginEdit = (task: (typeof allTasks)[number]) => {
@@ -105,7 +99,7 @@ export default function QuestsScreen() {
     setConfirmDeleteId(null);
   };
 
-  const saveTask = () => {
+  const saveTask = async () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
     const taskData = {
@@ -116,10 +110,34 @@ export default function QuestsScreen() {
       dueDate: dueDate.trim() || null,
     };
     if (editingId) {
+      if (offline.online === false) {
+        setDraftError('Editing an existing quest requires an internet connection.');
+        return;
+      }
       updateTask.mutate({ taskId: editingId, data: taskData }, { onSuccess: didSave });
     } else {
-      createTask.mutate({ data: taskData }, { onSuccess: didSave });
+      setDraftSaving(true);
+      const input = { action: 'saveQuest' as const, ...taskData, type: 'single' as const, tags: [] };
+      const saved = offlineDraftId
+        ? await offline.update(offlineDraftId, input)
+        : await offline.add(input);
+      if (saved) didSave();
+      else setDraftError(offline.storageError || 'Could not save this quest draft on the device.');
+      setDraftSaving(false);
     }
+  };
+
+  const editOfflineDraft = (draft: ManualDraft) => {
+    const input = draft.input;
+    setEditingId(null);
+    setOfflineDraftId(draft.id);
+    setTitle(input.title ?? '');
+    setCategory(input.category ?? 'Side Quest');
+    setDifficulty(input.difficulty ?? 'medium');
+    setPriority(input.priority ?? false);
+    setDueDate(input.dueDate ?? '');
+    setShowForm(true);
+    setDraftError('');
   };
 
   const validDueDate = !dueDate.trim() || /^\d{4}-\d{2}-\d{2}$/.test(dueDate.trim());
@@ -151,7 +169,7 @@ export default function QuestsScreen() {
 
       {showForm ? (
         <Panel>
-          <SectionHeading title={editingId ? 'EDIT QUEST' : 'NEW QUEST'} />
+          <SectionHeading title={editingId ? 'EDIT QUEST' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW QUEST'} />
           <Field
             label="QUEST NAME"
             value={title}
@@ -214,14 +232,36 @@ export default function QuestsScreen() {
           </Pressable>
           <View style={styles.formActions}>
             <PixelButton
-              label={createTask.isPending || updateTask.isPending ? 'SAVING...' : editingId ? 'SAVE CHANGES' : 'ADD QUEST'}
+              label={draftSaving || updateTask.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD QUEST'}
               onPress={saveTask}
-              disabled={!title.trim() || !validDueDate || createTask.isPending || updateTask.isPending}
+              disabled={!title.trim() || !validDueDate || draftSaving || updateTask.isPending}
               testID="button-save-quest"
             />
             <PixelButton label="CANCEL" tone="quiet" onPress={clearForm} testID="button-cancel-quest" />
           </View>
         </Panel>
+      ) : null}
+
+      {tasksQuery.error ? <ErrorState message={tasksQuery.error instanceof Error ? tasksQuery.error.message : 'Could not load your quests.'} retry={() => void tasksQuery.refetch()} /> : null}
+      {offline.storageError ? <Text accessibilityRole="alert" testID="status-offline-storage-error" style={{ color: colors.destructive, fontSize: 12 }}>{offline.storageError}</Text> : null}
+      {draftError ? <Text accessibilityRole="alert" testID="status-quest-draft-error" style={{ color: colors.destructive, fontSize: 12 }}>{draftError}</Text> : null}
+      {offline.drafts.filter(draft => draft.kind === 'task').length ? (
+        <View>
+          <SectionHeading title="SAVED QUEST DRAFTS" />
+          {offline.drafts.filter(draft => draft.kind === 'task').map(draft => (
+            <View key={draft.id} testID={`card-offline-draft-${draft.id}`} style={styles.taskCard}>
+              <Panel>
+                <Text testID={`text-offline-draft-title-${draft.id}`} style={{ color: colors.foreground, fontWeight: '700' }}>{draft.input.title}</Text>
+                <View testID={`status-offline-draft-${draft.id}`}><MetaText>{draft.status === 'failed' ? 'SYNC FAILED · RETRY WHEN ONLINE' : draft.status === 'syncing' ? 'SYNCING…' : 'WAITING FOR CONNECTION'}</MetaText></View>
+                <View style={styles.formActions}>
+                  {draft.status === 'failed' ? <PixelButton label="RETRY" tone="quiet" onPress={() => void offline.retry(draft.id)} testID={`button-retry-draft-${draft.id}`} /> : null}
+                  <PixelButton label="EDIT" tone="quiet" onPress={() => editOfflineDraft(draft)} testID={`button-edit-draft-${draft.id}`} />
+                  <PixelButton label="REMOVE" tone="quiet" onPress={() => void offline.remove(draft.id)} testID={`button-remove-draft-${draft.id}`} />
+                </View>
+              </Panel>
+            </View>
+          ))}
+        </View>
       ) : null}
 
       <View>

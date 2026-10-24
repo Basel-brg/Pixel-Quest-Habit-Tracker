@@ -498,6 +498,65 @@ export const PerformRpgActionResponse = zod.object({
 
 
 /**
+ * @summary Transcribe a short recording and extract tasks and habits
+ */
+export const parseVoiceBodyAudioBase64Max = 8400000;
+
+
+
+export const ParseVoiceBody = zod.object({
+  "audioBase64": zod.string().min(1).max(parseVoiceBodyAudioBase64Max),
+  "mimeType": zod.enum(['audio/webm', 'audio/mp4', 'audio/m4a', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/mpeg'])
+})
+
+export const parseVoiceResponseTranscriptMax = 4000;
+
+export const parseVoiceResponseTasksItemTitleMax = 120;
+
+export const parseVoiceResponseTasksItemCategoryMax = 40;
+
+export const parseVoiceResponseTasksItemConfidenceMin = 0;
+export const parseVoiceResponseTasksItemConfidenceMax = 1;
+
+export const parseVoiceResponseTasksMax = 12;
+
+export const parseVoiceResponseHabitsItemTitleMax = 120;
+
+export const parseVoiceResponseHabitsItemCategoryMax = 40;
+
+export const parseVoiceResponseHabitsItemDaysItemMin = 0;
+export const parseVoiceResponseHabitsItemDaysItemMax = 6;
+
+export const parseVoiceResponseHabitsItemDaysMax = 7;
+
+export const parseVoiceResponseHabitsItemConfidenceMin = 0;
+export const parseVoiceResponseHabitsItemConfidenceMax = 1;
+
+export const parseVoiceResponseHabitsMax = 12;
+
+
+
+export const ParseVoiceResponse = zod.object({
+  "transcript": zod.string().max(parseVoiceResponseTranscriptMax),
+  "tasks": zod.array(zod.object({
+  "title": zod.string().min(1).max(parseVoiceResponseTasksItemTitleMax),
+  "category": zod.string().max(parseVoiceResponseTasksItemCategoryMax).optional(),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']).optional(),
+  "priority": zod.boolean().optional(),
+  "dueDate": zod.string().nullish(),
+  "confidence": zod.number().min(parseVoiceResponseTasksItemConfidenceMin).max(parseVoiceResponseTasksItemConfidenceMax)
+})).max(parseVoiceResponseTasksMax),
+  "habits": zod.array(zod.object({
+  "title": zod.string().min(1).max(parseVoiceResponseHabitsItemTitleMax),
+  "category": zod.string().max(parseVoiceResponseHabitsItemCategoryMax).optional(),
+  "frequency": zod.enum(['daily', 'weekly']).optional(),
+  "days": zod.array(zod.number().int().min(parseVoiceResponseHabitsItemDaysItemMin).max(parseVoiceResponseHabitsItemDaysItemMax)).max(parseVoiceResponseHabitsItemDaysMax).optional(),
+  "confidence": zod.number().min(parseVoiceResponseHabitsItemConfidenceMin).max(parseVoiceResponseHabitsItemConfidenceMax)
+})).max(parseVoiceResponseHabitsMax)
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */

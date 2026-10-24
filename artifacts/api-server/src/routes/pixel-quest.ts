@@ -6,10 +6,11 @@ import { db, pixelQuestUsersTable, playerProfileTable, playerMilestonesTable } f
 import {
   PerformRpgActionBody, CreateHabitBody, UpdateHabitBody, CompleteHabitBody, UndoHabitCompletionBody,
   CreateTaskBody, UpdateTaskBody, CreateRewardBody, UpdateRewardBody, UpdatePixelQuestProfileBody,
-  GetTasksQueryParams, GetHabitsQueryParams,
+  GetTasksQueryParams, GetHabitsQueryParams, ParseVoiceBody, ParseVoiceResponse,
 } from "@workspace/api-zod";
 import { runGame, GameError, type Action, type ActionOutcome } from "../lib/rpg-game";
 import { levelForXp } from "../lib/rpg-rules";
+import { decodeVoiceAudio, parseVoiceAudio, VoiceProcessingError } from "../lib/voice-intake";
 
 declare global { namespace Express { interface Request { pixelQuestUserId?: string } } }
 const router: IRouter = Router();
@@ -36,6 +37,7 @@ const id = (v: unknown) => {
 const requestId = (req: Request) => req.get("Idempotency-Key") ?? randomUUID();
 const action = (req: Request, input: Omit<Action, "requestId">, outcome?: ActionOutcome) => runGame(uid(req), PerformRpgActionBody.parse({ ...input, requestId: requestId(req) }), new Date(), outcome);
 const find = <T extends { id: number }>(rows: T[], n: number) => rows.find(x => x.id === n) ?? (() => { throw new GameError(404, "Owned record not found."); })();
+const voiceRequests = new Map<string, number[]>();
 const profile = (s: Awaited<ReturnType<typeof runGame>>) => ({
   ...s.profile, ...levelForXp(s.profile.xp), streak: Math.max(0, ...s.profile.habitStreaks.map(h => h.currentStreak)),
   title: s.profile.avatars.filter(a => a.unlocked).at(-1)?.name ?? "Novice",
@@ -48,6 +50,35 @@ router.use("/pixelquest", async (req, res, next) => {
     if (!user) { res.status(401).json({ error: "Sign in to access your player profile." }); return; }
     req.pixelQuestUserId = user; await ensureAccount(user); next();
   } catch (e) { next(e); }
+});
+router.post("/pixelquest/voice/parse", async (req, res) => {
+  const now = Date.now();
+  const recent = (voiceRequests.get(uid(req)) ?? []).filter(at => now - at < 60_000);
+  if (recent.length >= 5) {
+    res.status(429).json({ error: "Too many voice requests. Please wait a minute and try again." });
+    return;
+  }
+  recent.push(now);
+  voiceRequests.set(uid(req), recent);
+  try {
+    const parsedBody = ParseVoiceBody.safeParse(req.body);
+    if (!parsedBody.success) {
+      res.status(400).json({ error: "Invalid audio request. Please record a short supported audio clip." });
+      return;
+    }
+    const body = parsedBody.data;
+    const audio = decodeVoiceAudio(body.audioBase64, body.mimeType);
+    const result = ParseVoiceResponse.safeParse(await parseVoiceAudio(audio, body.mimeType));
+    if (!result.success) throw new VoiceProcessingError("Voice processing returned an invalid response.", 502);
+    res.json(result.data);
+  } catch (error) {
+    if (error instanceof VoiceProcessingError) {
+      if (error.status >= 500) req.log.warn({ status: error.status }, "Voice processing request failed");
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 router.get("/pixelquest/rpg", async (req, res) => { res.json(await runGame(uid(req))); });
 router.post("/pixelquest/rpg/actions", async (req, res) => {

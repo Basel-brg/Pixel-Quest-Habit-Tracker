@@ -7,7 +7,7 @@ import { cue, reducedMotion } from '@/lib/feedback';
 import { discoverNewlyReadyRewards, discoverShareMilestones, type ShareMilestone } from '@/lib/share-milestones';
 
 export type ActionInput = Omit<RpgActionInput, 'requestId'>;
-export interface RunOptions { optimistic?: (s: RpgSnapshot) => RpgSnapshot; key?: string }
+export interface RunOptions { optimistic?: (s: RpgSnapshot) => RpgSnapshot; key?: string; requestId?: string }
 interface Celebration { id: number; kind: 'boss' | 'reward'; text: string }
 interface RpgCtx {
   snap: RpgSnapshot | undefined; isLoading: boolean; isError: boolean; refetch: () => void;
@@ -20,6 +20,17 @@ const Ctx = createContext<RpgCtx | null>(null);
 export function useRpg(): RpgCtx { const c = useContext(Ctx); if (!c) throw new Error('useRpg outside RpgProvider'); return c; }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function isSnapshot(value: unknown): value is RpgSnapshot {
+  if (!value || typeof value !== 'object') return false;
+  const snapshot = value as Partial<RpgSnapshot>;
+  return typeof snapshot.today === 'string' &&
+    typeof snapshot.timezone === 'string' &&
+    !!snapshot.profile && typeof snapshot.profile === 'object' &&
+    !!snapshot.skills && typeof snapshot.skills === 'object' &&
+    Array.isArray(snapshot.habits) &&
+    Array.isArray(snapshot.quests) &&
+    Array.isArray(snapshot.rewards);
+}
 function errMessage(e: unknown): string {
   const x = e as { data?: { error?: string; message?: string } | null; message?: string };
   return x?.data?.error || x?.data?.message || x?.message || 'That action could not be saved. Your journal was restored.';
@@ -30,11 +41,32 @@ export function RpgProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const { user, isSignedIn } = useUser();
   const userId = user?.id ?? null;
+  const [cachedState, setCachedState] = useState<{ owner: string | null; snap: RpgSnapshot | null }>({ owner: null, snap: null });
   const pendingRef = useRef(new Set<string>());
   const readySeenRef = useRef(new Map<string, Set<number>>());
   const shareSeenRef = useRef(new Map<string, Set<string>>());
   const qk = useMemo(() => [...getGetRpgStateQueryKey(), userId], [userId]);
   const q = useGetRpgState({ query: { enabled: !!isSignedIn, queryKey: qk, refetchInterval: () => pendingRef.current.size ? false : 30000, refetchOnWindowFocus: () => pendingRef.current.size === 0, staleTime: 10000 } });
+  useEffect(() => {
+    setCachedState({ owner: userId, snap: null });
+    if (!userId) return;
+    try {
+      const raw = localStorage.getItem(`pq:rpg-snapshot:${userId}`);
+      const stored: unknown = raw ? JSON.parse(raw) : null;
+      if (isSnapshot(stored)) setCachedState({ owner: userId, snap: stored });
+    } catch {
+      // The live API remains authoritative; malformed or unavailable local cache is ignored.
+    }
+  }, [userId]);
+  useEffect(() => {
+    if (!userId || !q.data) return;
+    try {
+      localStorage.setItem(`pq:rpg-snapshot:${userId}`, JSON.stringify(q.data));
+      setCachedState({ owner: userId, snap: q.data });
+    } catch {
+      // Offline entry drafts remain available even if the snapshot cache cannot be written.
+    }
+  }, [q.data, userId]);
   const mutation = usePerformRpgAction();
   const mutateRef = useRef(mutation.mutateAsync); mutateRef.current = mutation.mutateAsync;
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -109,7 +141,7 @@ export function RpgProvider({ children }: { children: ReactNode }) {
     return false;
   }, [enqueueShare]);
 
-  const snap = q.data;
+  const snap = q.data ?? (cachedState.owner === userId ? cachedState.snap ?? undefined : undefined);
   useEffect(() => { if (snap) detectUnlock(snap); }, [snap, detectUnlock]);
    useEffect(() => () => { userRef.current = null; window.clearTimeout(noticeTimer.current); window.clearTimeout(celTimer.current); }, []);
 
@@ -121,7 +153,7 @@ export function RpgProvider({ children }: { children: ReactNode }) {
     const prev = qc.getQueryData<RpgSnapshot>(qk);
     await qc.cancelQueries({ queryKey: qk });
     if (opts?.optimistic && prev) qc.setQueryData(qk, opts.optimistic(prev));
-    const requestId = crypto.randomUUID();
+    const requestId = opts?.requestId ?? crypto.randomUUID();
     try {
       let result: RpgSnapshot | undefined;
       for (let attempt = 0; ; attempt++) {

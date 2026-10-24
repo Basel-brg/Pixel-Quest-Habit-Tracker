@@ -6,3 +6,4 @@
 - [Expo auth verification](expo-auth-verification.md) — verify test identity and Expo-origin login before account mutations; browser persistence does not prove native persistence.
 - [Habit reminder boundaries](habit-reminder-scope.md) — keep reminder times device-local and account-isolated; web/logic tests do not prove native notification delivery.
 - [Vite peer-context singletons](vite-peer-context-singletons.md) — linked workspace packages may bundle separate React context libraries despite matching package versions; inspect peer-specific resolutions.
+- [Voice-entry safeguards](voice-entry-safeguards.md) — voice suggestions need an editable preview and explicit approval; manual tasks and habits may queue offline.

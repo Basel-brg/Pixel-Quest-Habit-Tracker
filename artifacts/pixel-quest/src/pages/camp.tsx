@@ -4,6 +4,7 @@ import { Btn, Empty, Gate, Meter, PageHead, Panel, SectionHead, cx, fmtDate } fr
 import { HabitProgress } from '@/components/habit-progress';
 import { SkillRadar } from '@/components/skill-radar';
 import { useRpg } from '@/lib/rpg-context';
+import { VoiceCapture } from '@/components/voice-capture';
 
 export default function CampPage() {
   const { run, isPending } = useRpg();
@@ -14,6 +15,7 @@ export default function CampPage() {
     const pct = (p: number) => (p <= 1 ? p * 100 : p);
     return <>
       <PageHead eyebrow={`${s.today} / ${s.timezone}`} title="Camp" sub="Today's habits, quests and the bosses waiting at the end of the week."/>
+      <VoiceCapture today={s.today}/>
       <Panel className={cx(fainted && 'border-[color:var(--pq-mute)]')}>
         <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
           <div><div className="mb-2 flex items-center justify-between"><span className="flex items-center gap-2 font-mono text-[10px] uppercase text-[color:var(--pq-danger)]"><Heart size={14}/>Health</span><span data-testid="text-hp" className="font-mono text-xs text-[color:var(--pq-ink)]">{s.hp} / 100 HP</span></div>

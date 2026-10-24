@@ -5,6 +5,8 @@ import { Btn, Empty, Field, Gate, Modal, PageHead, Panel, SectionHead, cx, weekD
 import { HabitProgress } from '@/components/habit-progress';
 import { useRpg } from '@/lib/rpg-context';
 import { useReminders } from '@/lib/reminders';
+import { useOfflineDrafts } from '@/lib/offline-drafts';
+import { OfflineDraftList } from '@/components/offline-draft-list';
 
 interface Draft { id?: number; title: string; category: string; frequency: RpgActionInputFrequency; days: number[]; mandatory: boolean; target: number; unit: string; stat: RpgActionInputStat; archived: boolean }
 const blank: Draft = { title: '', category: 'Wellbeing', frequency: 'daily', days: [1, 2, 3, 4, 5], mandatory: false, target: 1, unit: 'time', stat: 'STR', archived: false };
@@ -21,13 +23,23 @@ function Reminder({ habit }: { habit: RpgHabit }) {
 
 export default function HabitsPage() {
   const { run, isPending, snap } = useRpg();
+  const offline = useOfflineDrafts();
   const [draft, setDraft] = useState<Draft | null>(null); const [archivedView, setArchivedView] = useState(false); const [err, setErr] = useState('');
-  const open = (h?: RpgHabit) => { setErr(''); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived } : blank); };
+  const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
+  const open = (h?: RpgHabit) => { setErr(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived } : blank); };
   const payload = (d: Draft) => ({ action: 'saveHabit' as const, id: d.id, title: d.title.trim(), category: d.category.trim(), frequency: d.frequency, days: d.frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : d.days, mandatory: d.mandatory, target: Math.max(1, Number(d.target) || 1), unit: d.unit.trim() || 'time', stat: d.stat, archived: d.archived });
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
     if (draft.frequency === 'weekly' && !draft.days.length) { setErr('Pick at least one day.'); return; }
-    const r = await run(payload(draft), { key: 'saveHabit:editor' }); if (r) setDraft(null);
+    const input = payload(draft);
+    if (draft.id && !offline.online) { setErr('Editing an existing habit requires an internet connection.'); return; }
+    if (draft.id) {
+      const r = await run(input, { key: 'saveHabit:editor' }); if (r) setDraft(null);
+      return;
+    }
+    const saved = offlineDraftId ? offline.update(offlineDraftId, input) : offline.add(input);
+    if (saved) { setDraft(null); setOfflineDraftId(null); }
+    else setErr(offline.storageError || 'Could not save this habit draft on the device.');
   };
   const editing = draft?.id ? snap?.habits.find((h) => h.id === draft.id) : undefined;
   const upd = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
@@ -35,6 +47,23 @@ export default function HabitsPage() {
     const list = s.habits.filter((h) => h.archived === archivedView);
     return <>
       <PageHead eyebrow="Build your character" title="Habit journal" sub="Binary or numeric, mapped to a stat. Partial numeric progress earns nothing until the target is reached." action={<Btn testId="button-add-habit" onClick={() => open()}><Plus size={16}/> New habit</Btn>}/>
+      {offline.storageError && <p data-testid="status-offline-storage-error" role="alert" className="text-xs text-[color:var(--pq-danger)]">{offline.storageError}</p>}
+      <OfflineDraftList kind="habit" drafts={offline.drafts} onRetry={offline.retry} onRemove={offline.remove} onEdit={(item) => {
+        const input = item.input;
+        setOfflineDraftId(item.id);
+        setErr('');
+        setDraft({
+          title: input.title ?? '',
+          category: input.category ?? 'Personal',
+          frequency: input.frequency ?? 'daily',
+          days: input.days ?? [],
+          mandatory: input.mandatory ?? false,
+          target: input.target ?? 1,
+          unit: input.unit ?? 'time',
+          stat: input.stat ?? 'STR',
+          archived: false,
+        });
+      }}/>
       <Panel><SectionHead eyebrow="ROUTINES" title={archivedView ? 'Archived' : 'Habit roster'} action={<Btn testId="button-toggle-archived" variant="quiet" className="!px-3 !py-2 text-xs" onClick={() => setArchivedView((v) => !v)}><Archive size={14}/>{archivedView ? 'Show active' : 'Archived'}</Btn>}/>
         {list.length ? <div className="grid gap-3 lg:grid-cols-2">{list.map((h) => <article key={h.id} data-testid={`card-habit-${h.id}`} className="border border-[color:var(--pq-line2)] bg-[color:var(--pq-panel2)] p-4">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-sm font-bold">{h.title}</h3>

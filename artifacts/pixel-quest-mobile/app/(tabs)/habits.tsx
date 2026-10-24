@@ -3,7 +3,6 @@ import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useCompleteHabit,
-  useCreateHabit,
   useGetHabits,
   useUndoHabitCompletion,
   useUpdateHabit,
@@ -15,6 +14,7 @@ import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
 import { HabitReminderControls } from '@/components/HabitReminderControls';
 import { useHabitReminders } from '@/lib/habit-reminders';
+import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
 import {
   dateKey,
   invalidatePixelQuest,
@@ -40,15 +40,18 @@ export default function HabitsScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const reminders = useHabitReminders();
+  const offline = useOfflineDrafts();
   const [showArchived, setShowArchived] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftError, setDraftError] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [days, setDays] = useState<number[]>([]);
   const habitsQuery = useGetHabits({ archived: showArchived });
-  const createHabit = useCreateHabit();
   const updateHabit = useUpdateHabit();
   const completeHabit = useCompleteHabit();
   const undoHabit = useUndoHabitCompletion();
@@ -58,6 +61,8 @@ export default function HabitsScreen() {
   const clearForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setOfflineDraftId(null);
+    setDraftError('');
     setTitle('');
     setCategory('');
     setFrequency('daily');
@@ -69,19 +74,8 @@ export default function HabitsScreen() {
     clearForm();
   };
 
-  if (habitsQuery.isLoading) {
+  if (habitsQuery.isLoading && offline.online !== false) {
     return <PixelPage keyboard><LoadingState label="Loading your habits..." /></PixelPage>;
-  }
-  if (habitsQuery.error) {
-    return (
-      <PixelPage keyboard>
-        <ScreenTitle eyebrow="PLAYER JOURNAL" title="HABITS" subtitle="Build your daily rituals." />
-        <ErrorState
-          message={habitsQuery.error instanceof Error ? habitsQuery.error.message : 'Could not load your habits.'}
-          retry={() => void habitsQuery.refetch()}
-        />
-      </PixelPage>
-    );
   }
 
   const beginEdit = (habit: Habit) => {
@@ -93,7 +87,7 @@ export default function HabitsScreen() {
     setShowForm(true);
   };
 
-  const saveHabit = () => {
+  const saveHabit = async () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
     const habitData = {
@@ -103,6 +97,10 @@ export default function HabitsScreen() {
       days: frequency === 'daily' ? [] : days,
     };
     if (editingId) {
+      if (offline.online === false) {
+        setDraftError('Editing an existing habit requires an internet connection.');
+        return;
+      }
       updateHabit.mutate(
         { habitId: editingId, data: habitData },
         { onSuccess: async habit => {
@@ -110,8 +108,27 @@ export default function HabitsScreen() {
         } },
       );
     } else {
-      createHabit.mutate({ data: habitData }, { onSuccess: updated });
+      setDraftSaving(true);
+      const input = { action: 'saveHabit' as const, ...habitData, days: frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habitData.days };
+      const saved = offlineDraftId
+        ? await offline.update(offlineDraftId, input)
+        : await offline.add(input);
+      if (saved) updated();
+      else setDraftError(offline.storageError || 'Could not save this habit draft on the device.');
+      setDraftSaving(false);
     }
+  };
+
+  const editOfflineDraft = (draft: ManualDraft) => {
+    const input = draft.input;
+    setEditingId(null);
+    setOfflineDraftId(draft.id);
+    setTitle(input.title ?? '');
+    setCategory(input.category ?? 'Personal');
+    setFrequency(input.frequency ?? 'daily');
+    setDays(input.days ?? []);
+    setShowForm(true);
+    setDraftError('');
   };
 
   const toggleDay = (day: number) => {
@@ -151,11 +168,14 @@ export default function HabitsScreen() {
         <ChoiceChip label="ACTIVE" selected={!showArchived} onPress={() => { setShowArchived(false); clearForm(); }} testID="filter-habits-active" />
         <ChoiceChip label="ARCHIVED" selected={showArchived} onPress={() => { setShowArchived(true); clearForm(); }} testID="filter-habits-archived" />
       </View>
+      {habitsQuery.error ? <ErrorState message={habitsQuery.error instanceof Error ? habitsQuery.error.message : 'Could not load your habits.'} retry={() => void habitsQuery.refetch()} /> : null}
       {reminders.error ? <ErrorState message={reminders.error} retry={reminders.retry} /> : null}
+      {offline.storageError ? <Text accessibilityRole="alert" testID="status-offline-storage-error" style={{ color: colors.destructive, fontSize: 12 }}>{offline.storageError}</Text> : null}
+      {draftError ? <Text accessibilityRole="alert" testID="status-habit-draft-error" style={{ color: colors.destructive, fontSize: 12 }}>{draftError}</Text> : null}
 
       {showForm ? (
         <Panel>
-          <SectionHeading title={editingId ? 'EDIT HABIT' : 'NEW HABIT'} />
+          <SectionHeading title={editingId ? 'EDIT HABIT' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW HABIT'} />
           <Field
             label="HABIT NAME"
             value={title}
@@ -206,14 +226,33 @@ export default function HabitsScreen() {
           ) : null}
           <View style={styles.formActions}>
             <PixelButton
-              label={createHabit.isPending || updateHabit.isPending ? 'SAVING...' : editingId ? 'SAVE CHANGES' : 'ADD HABIT'}
+              label={draftSaving || updateHabit.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD HABIT'}
               onPress={saveHabit}
-              disabled={!title.trim() || createHabit.isPending || updateHabit.isPending || (frequency === 'weekly' && days.length === 0)}
+              disabled={!title.trim() || draftSaving || updateHabit.isPending || (frequency === 'weekly' && days.length === 0)}
               testID="button-save-habit"
             />
             <PixelButton label="CANCEL" tone="quiet" onPress={clearForm} testID="button-cancel-habit" />
           </View>
         </Panel>
+      ) : null}
+
+      {offline.drafts.filter(draft => draft.kind === 'habit').length ? (
+        <View>
+          <SectionHeading title="SAVED HABIT DRAFTS" />
+          {offline.drafts.filter(draft => draft.kind === 'habit').map(draft => (
+            <View key={draft.id} testID={`card-offline-draft-${draft.id}`} style={{ marginBottom: 10 }}>
+              <Panel>
+                <Text testID={`text-offline-draft-title-${draft.id}`} style={{ color: colors.foreground, fontWeight: '700' }}>{draft.input.title}</Text>
+                <View testID={`status-offline-draft-${draft.id}`}><MetaText>{draft.status === 'failed' ? 'SYNC FAILED · RETRY WHEN ONLINE' : draft.status === 'syncing' ? 'SYNCING…' : 'WAITING FOR CONNECTION'}</MetaText></View>
+                <View style={styles.formActions}>
+                  {draft.status === 'failed' ? <PixelButton label="RETRY" tone="quiet" onPress={() => void offline.retry(draft.id)} testID={`button-retry-draft-${draft.id}`} /> : null}
+                  <PixelButton label="EDIT" tone="quiet" onPress={() => editOfflineDraft(draft)} testID={`button-edit-draft-${draft.id}`} />
+                  <PixelButton label="REMOVE" tone="quiet" onPress={() => void offline.remove(draft.id)} testID={`button-remove-draft-${draft.id}`} />
+                </View>
+              </Panel>
+            </View>
+          ))}
+        </View>
       ) : null}
 
       <View>

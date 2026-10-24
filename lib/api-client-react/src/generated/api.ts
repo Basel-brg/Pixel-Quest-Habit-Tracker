@@ -40,7 +40,9 @@ import type {
   RpgActionInput,
   RpgSnapshot,
   TaskInput,
-  TaskUpdate
+  TaskUpdate,
+  VoiceAudioInput,
+  VoiceParseResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -233,6 +235,94 @@ export const usePerformRpgAction = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getPerformRpgActionMutationOptions(options));
+    }
+
+export const getParseVoiceUrl = () => {
+
+
+
+
+  return `/api/pixelquest/voice/parse`
+}
+
+/**
+ * @summary Transcribe a short recording and extract tasks and habits
+ */
+export const parseVoice = async (voiceAudioInput: VoiceAudioInput, options?: Parameters<typeof customFetch>[1]): Promise<VoiceParseResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VoiceParseResult>(getParseVoiceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(voiceAudioInput)
+  }
+);}
+
+
+
+
+
+export const getParseVoiceMutationKey = () => ['parseVoice'] as const;
+
+export const getParseVoiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseVoice>>, TError,ParseVoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof parseVoice>>, TError,ParseVoiceMutationVariables, TContext> => {
+
+const mutationKey = getParseVoiceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof parseVoice>>, ParseVoiceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  parseVoice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ParseVoiceMutationResult = NonNullable<Awaited<ReturnType<typeof parseVoice>>>
+    export type ParseVoiceMutationBody = BodyType<VoiceAudioInput>
+    export type ParseVoiceMutationError = ErrorType<void>
+    export type ParseVoiceMutationVariables = {data: BodyType<VoiceAudioInput>}
+
+    /**
+ * @summary Transcribe a short recording and extract tasks and habits
+ */
+export const useParseVoice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseVoice>>, TError,ParseVoiceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof parseVoice>>,
+        TError,
+        ParseVoiceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getParseVoiceMutationOptions(options));
     }
 
 export const getHealthCheckUrl = () => {

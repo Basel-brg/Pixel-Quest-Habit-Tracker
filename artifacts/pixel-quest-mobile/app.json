@@ -23,7 +23,12 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Pixel Quest uses the microphone to turn your spoken plan into tasks and habits."
+        }
+      ],
       "expo-notifications",
       "./plugins/with-reminder-clock.cjs"
     ],
