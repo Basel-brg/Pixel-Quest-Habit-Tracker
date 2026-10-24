@@ -71,6 +71,7 @@ export interface Habit {
   frequency: HabitFrequency;
   days: number[];
   archived: boolean;
+  requiresPhotoProof: boolean;
   createdAt: string;
   completedDates: string[];
 }
@@ -118,6 +119,7 @@ export interface QuestTask {
   difficulty: QuestTaskDifficulty;
   category: string;
   priority: boolean;
+  requiresPhotoProof: boolean;
   status: QuestTaskStatus;
   /** @nullable */
   dueDate: string | null;
@@ -488,6 +490,7 @@ export interface RpgActionInput {
   /** @maxLength 100 */
   timezone?: string;
   chestEnabled?: boolean;
+  requiresPhotoProof?: boolean;
   equipped?: boolean;
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;
@@ -515,6 +518,45 @@ export interface VoiceAudioInput {
      */
   audioBase64: string;
   mimeType: VoiceAudioInputMimeType;
+}
+
+export type PhotoVerificationInputItemType = typeof PhotoVerificationInputItemType[keyof typeof PhotoVerificationInputItemType];
+
+
+export const PhotoVerificationInputItemType = {
+  habit: 'habit',
+  quest: 'quest',
+} as const;
+
+export type PhotoVerificationInputMimeType = typeof PhotoVerificationInputMimeType[keyof typeof PhotoVerificationInputMimeType];
+
+
+export const PhotoVerificationInputMimeType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+} as const;
+
+export interface PhotoVerificationInput {
+  itemType: PhotoVerificationInputItemType;
+  /** @minimum 1 */
+  itemId: number;
+  /**
+     * @minLength 1
+     * @maxLength 7000000
+     */
+  imageBase64: string;
+  mimeType: PhotoVerificationInputMimeType;
+}
+
+export interface PhotoVerificationResult {
+  isVerified: boolean;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  reason: string;
+  snapshot?: RpgSnapshot;
 }
 
 export type VoiceTaskDifficulty = typeof VoiceTaskDifficulty[keyof typeof VoiceTaskDifficulty];
@@ -607,6 +649,7 @@ export interface HabitInput {
      * @items.maximum 6
      */
   days: number[];
+  requiresPhotoProof?: boolean;
 }
 
 export type HabitUpdateFrequency = typeof HabitUpdateFrequency[keyof typeof HabitUpdateFrequency];
@@ -629,6 +672,7 @@ export interface HabitUpdate {
      */
   days?: number[];
   archived?: boolean;
+  requiresPhotoProof?: boolean;
 }
 
 export interface CompletionInput {
@@ -655,6 +699,7 @@ export interface TaskInput {
   /** @minLength 1 */
   category: string;
   priority: boolean;
+  requiresPhotoProof?: boolean;
   /** @nullable */
   dueDate?: string | null;
 }
@@ -675,6 +720,7 @@ export interface TaskUpdate {
   /** @minLength 1 */
   category?: string;
   priority?: boolean;
+  requiresPhotoProof?: boolean;
   /** @nullable */
   dueDate?: string | null;
 }

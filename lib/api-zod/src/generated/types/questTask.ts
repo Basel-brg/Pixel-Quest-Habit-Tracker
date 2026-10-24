@@ -14,6 +14,7 @@ export interface QuestTask {
   difficulty: QuestTaskDifficulty;
   category: string;
   priority: boolean;
+  requiresPhotoProof: boolean;
   status: QuestTaskStatus;
   /** @nullable */
   dueDate: Date | null;

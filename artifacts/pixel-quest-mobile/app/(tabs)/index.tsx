@@ -2,12 +2,15 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetAchievements, useGetHabits, useGetPixelQuestDashboard, useGetTasks, useCompleteHabit, useUndoHabitCompletion, useCompleteTask } from '@workspace/api-client-react';
+import { useState } from 'react';
 import { useColors } from '@/hooks/useColors';
 import { dateKey, invalidatePixelQuest, isHabitScheduledToday, localDateKey } from '@/lib/pixel-quest';
 import { EmptyState, ErrorState, LoadingState, MetaText, Panel, PixelBar, PixelPage, ScreenTitle, SectionHeading } from '@/components/PixelUI';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { VoiceCapture } from '@/components/VoiceCapture';
+import { PhotoProofModal, type PhotoProofTarget } from '@/components/PhotoProofModal';
+import { AvatarQuickSwitch } from '@/components/AvatarQuickSwitch';
 
 const difficultyColor = {
   easy: 'success',
@@ -15,45 +18,9 @@ const difficultyColor = {
   hard: 'purple',
 } as const;
 
-function PixelAvatar() {
-  const colors = useColors();
-  const pattern = [
-    '00100',
-    '01110',
-    '11111',
-    '10101',
-    '01110',
-  ];
-  return (
-    <View style={[styles.avatar, { backgroundColor: colors.sidebar, borderColor: colors.border }]}>
-      {pattern.map((row, rowIndex) => (
-        <View key={`avatar-row-${rowIndex}`} style={styles.avatarRow}>
-          {row.split('').map((cell, columnIndex) => (
-            <View
-              key={`avatar-pixel-${rowIndex}-${columnIndex}`}
-              style={[
-                styles.avatarPixel,
-                {
-                  backgroundColor:
-                    cell === '0'
-                      ? 'transparent'
-                      : rowIndex === 1
-                        ? colors.cyan
-                        : rowIndex === 3 && (columnIndex === 1 || columnIndex === 3)
-                          ? colors.background
-                          : colors.gold,
-                },
-              ]}
-            />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
 export default function TodayScreen() {
   const colors = useColors();
+  const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const queryClient = useQueryClient();
   const dashboardQuery = useGetPixelQuestDashboard();
   const habitsQuery = useGetHabits();
@@ -135,7 +102,7 @@ export default function TodayScreen() {
         eyebrow={dateLabel.toUpperCase()}
         title="PIXEL QUEST"
         subtitle="One good move at a time."
-        trailing={<PixelAvatar />}
+        trailing={<AvatarQuickSwitch/>}
       />
 
       <VoiceCapture />
@@ -175,33 +142,44 @@ export default function TodayScreen() {
             const busy = completeHabit.isPending || undoHabit.isPending;
             return (
               <View key={habit.id} style={[styles.listRow, { borderBottomColor: colors.border }]}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: done }}
-                  accessibilityLabel={`${done ? 'Undo' : 'Complete'} ${habit.title}`}
-                  testID={`habit-toggle-${habit.id}`}
-                  disabled={busy}
-                  onPress={() => {
-                    const onDone = () => mutationSuccess();
-                    if (done) {
-                      undoHabit.mutate(
-                        { habitId: habit.id, data: { date: today } },
-                        { onSuccess: onDone },
-                      );
-                    } else {
-                      completeHabit.mutate(
-                        { habitId: habit.id, data: { date: today } },
-                        { onSuccess: onDone },
-                      );
-                    }
-                  }}
-                  style={[
-                    styles.checkbox,
-                    { borderColor: done ? colors.cyan : colors.border, backgroundColor: done ? colors.cyan : 'transparent' },
-                  ]}
-                >
-                  {done ? <Feather name="check" size={15} color={colors.background} /> : null}
-                </Pressable>
+                {habit.requiresPhotoProof && !done ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Verify ${habit.title} with a photo`}
+                    testID={`habit-photo-proof-${habit.id}`}
+                    disabled={busy}
+                    onPress={() => setPhotoTarget({ itemType: 'habit', itemId: habit.id, title: habit.title })}
+                    style={[styles.checkbox, { borderColor: colors.cyan }]}
+                  ><Feather name="camera" size={15} color={colors.cyan} /></Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: done }}
+                    accessibilityLabel={`${done ? 'Undo' : 'Complete'} ${habit.title}`}
+                    testID={`habit-toggle-${habit.id}`}
+                    disabled={busy}
+                    onPress={() => {
+                      const onDone = () => mutationSuccess();
+                      if (done) {
+                        undoHabit.mutate(
+                          { habitId: habit.id, data: { date: today } },
+                          { onSuccess: onDone },
+                        );
+                      } else {
+                        completeHabit.mutate(
+                          { habitId: habit.id, data: { date: today } },
+                          { onSuccess: onDone },
+                        );
+                      }
+                    }}
+                    style={[
+                      styles.checkbox,
+                      { borderColor: done ? colors.cyan : colors.border, backgroundColor: done ? colors.cyan : 'transparent' },
+                    ]}
+                  >
+                    {done ? <Feather name="check" size={15} color={colors.background} /> : null}
+                  </Pressable>
+                )}
                 <View style={styles.rowCopy}>
                   <Text style={[styles.rowTitle, { color: done ? colors.mutedForeground : colors.foreground }]}>{habit.title}</Text>
                   <MetaText>{habit.category.toUpperCase()}</MetaText>
@@ -223,14 +201,25 @@ export default function TodayScreen() {
             const color = colors[tone];
             return (
               <View key={task.id} style={[styles.listRow, { borderBottomColor: colors.border }]}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Complete ${task.title}`}
-                  testID={`task-complete-${task.id}`}
-                  disabled={completeTask.isPending}
-                  onPress={() => completeTask.mutate({ taskId: task.id }, { onSuccess: mutationSuccess })}
-                  style={[styles.checkbox, { borderColor: colors.border }]}
-                />
+                {task.requiresPhotoProof ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Verify ${task.title} with a photo`}
+                    testID={`task-photo-proof-${task.id}`}
+                    disabled={completeTask.isPending}
+                    onPress={() => setPhotoTarget({ itemType: 'quest', itemId: task.id, title: task.title })}
+                    style={[styles.checkbox, { borderColor: colors.cyan }]}
+                  ><Feather name="camera" size={15} color={colors.cyan} /></Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Complete ${task.title}`}
+                    testID={`task-complete-${task.id}`}
+                    disabled={completeTask.isPending}
+                    onPress={() => completeTask.mutate({ taskId: task.id }, { onSuccess: mutationSuccess })}
+                    style={[styles.checkbox, { borderColor: colors.border }]}
+                  />
+                )}
                 <View style={styles.rowCopy}>
                   <Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{task.title}</Text>
                   <MetaText>{task.difficulty.toUpperCase()} · {task.category.toUpperCase()}</MetaText>
@@ -285,6 +274,7 @@ export default function TodayScreen() {
           )) : <MetaText>No completed quests yet. Your log starts with your first win.</MetaText>}
         </Panel>
       </View>
+      {photoTarget ? <PhotoProofModal target={photoTarget} onClose={() => setPhotoTarget(null)} /> : null}
     </PixelPage>
   );
 }
@@ -301,9 +291,6 @@ function StatBox({ label, value, detail }: { label: string; value: string; detai
 }
 
 const styles = StyleSheet.create({
-  avatar: { width: 52, height: 52, borderWidth: 2, alignItems: 'center', justifyContent: 'center', padding: 5, gap: 1 },
-  avatarRow: { flexDirection: 'row', gap: 1 },
-  avatarPixel: { width: 6, height: 6 },
   playerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   levelLabel: { fontFamily: 'PressStart2P_400Regular', fontSize: 9, lineHeight: 16 },
   playerTitle: { fontFamily: 'DMSans_700Bold', fontSize: 16, marginTop: 5 },

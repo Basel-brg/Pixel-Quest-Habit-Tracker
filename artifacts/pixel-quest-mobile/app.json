@@ -24,6 +24,13 @@
       "expo-secure-store",
       "expo-web-browser",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Pixel Quest uses the camera to verify habit and quest completion.",
+          "photosPermission": "Pixel Quest uses selected photos to verify habit and quest completion."
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": "Pixel Quest uses the microphone to turn your spoken plan into tasks and habits."

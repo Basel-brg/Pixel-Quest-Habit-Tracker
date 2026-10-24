@@ -15,6 +15,7 @@ import { useColors } from '@/hooks/useColors';
 import { HabitReminderControls } from '@/components/HabitReminderControls';
 import { useHabitReminders } from '@/lib/habit-reminders';
 import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
+import { PhotoProofModal, type PhotoProofTarget } from '@/components/PhotoProofModal';
 import {
   dateKey,
   invalidatePixelQuest,
@@ -51,6 +52,8 @@ export default function HabitsScreen() {
   const [category, setCategory] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [days, setDays] = useState<number[]>([]);
+  const [requiresPhotoProof, setRequiresPhotoProof] = useState(false);
+  const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const habitsQuery = useGetHabits({ archived: showArchived });
   const updateHabit = useUpdateHabit();
   const completeHabit = useCompleteHabit();
@@ -67,6 +70,7 @@ export default function HabitsScreen() {
     setCategory('');
     setFrequency('daily');
     setDays([]);
+    setRequiresPhotoProof(false);
   };
   const updated = () => {
     invalidatePixelQuest(queryClient);
@@ -84,6 +88,7 @@ export default function HabitsScreen() {
     setCategory(habit.category);
     setFrequency(habit.frequency);
     setDays(habit.days);
+    setRequiresPhotoProof(habit.requiresPhotoProof);
     setShowForm(true);
   };
 
@@ -95,6 +100,7 @@ export default function HabitsScreen() {
       category: category.trim() || 'Personal',
       frequency,
       days: frequency === 'daily' ? [] : days,
+      requiresPhotoProof,
     };
     if (editingId) {
       if (offline.online === false) {
@@ -127,6 +133,7 @@ export default function HabitsScreen() {
     setCategory(input.category ?? 'Personal');
     setFrequency(input.frequency ?? 'daily');
     setDays(input.days ?? []);
+    setRequiresPhotoProof(input.requiresPhotoProof ?? false);
     setShowForm(true);
     setDraftError('');
   };
@@ -224,6 +231,23 @@ export default function HabitsScreen() {
               })}
             </View>
           ) : null}
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: requiresPhotoProof }}
+            accessibilityLabel="Require Photo Proof"
+            testID="switch-habit-photo-proof"
+            onPress={() => setRequiresPhotoProof(value => !value)}
+            style={styles.photoProofToggle}
+          >
+            <Feather name="camera" size={17} color={requiresPhotoProof ? colors.cyan : colors.mutedForeground} />
+            <View style={styles.photoProofCopy}>
+              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF</Text>
+              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>Must upload a photo to verify completion and claim rewards.</Text>
+            </View>
+            <View style={[styles.switchTrack, { backgroundColor: requiresPhotoProof ? colors.cyan : colors.secondary }]}>
+              <View style={[styles.switchKnob, { backgroundColor: colors.foreground, alignSelf: requiresPhotoProof ? 'flex-end' : 'flex-start' }]} />
+            </View>
+          </Pressable>
           <View style={styles.formActions}>
             <PixelButton
               label={draftSaving || updateHabit.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD HABIT'}
@@ -272,30 +296,41 @@ export default function HabitsScreen() {
                   <Text style={[styles.habitTitle, { color: colors.foreground }]}>{habit.title}</Text>
                   <MetaText>{habit.category.toUpperCase()} · {habit.frequency === 'daily' ? 'EVERY DAY' : `${habit.days.length} DAYS / WEEK`}</MetaText>
                 </View>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isDone }}
-                  accessibilityLabel={`${isDone ? 'Undo' : 'Complete'} ${habit.title}`}
-                  testID={`habit-complete-${habit.id}`}
-                  disabled={completeHabit.isPending || undoHabit.isPending || showArchived}
-                  onPress={() => {
-                    const onSuccess = () => {
-                      invalidatePixelQuest(queryClient);
-                      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    };
-                    if (isDone) {
-                      undoHabit.mutate({ habitId: habit.id, data: { date: today } }, { onSuccess });
-                    } else {
-                      completeHabit.mutate({ habitId: habit.id, data: { date: today } }, { onSuccess });
-                    }
-                  }}
-                  style={[
-                    styles.completeButton,
-                    { backgroundColor: isDone ? colors.cyan : 'transparent', borderColor: isDone ? colors.cyan : colors.border },
-                  ]}
-                >
-                  <Feather name={isDone ? 'check' : 'plus'} size={17} color={isDone ? colors.background : colors.cyan} />
-                </Pressable>
+                {habit.requiresPhotoProof && !isDone ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Verify ${habit.title} with a photo`}
+                    testID={`habit-photo-proof-${habit.id}`}
+                    disabled={completeHabit.isPending || showArchived}
+                    onPress={() => setPhotoTarget({ itemType: 'habit', itemId: habit.id, title: habit.title })}
+                    style={[styles.completeButton, { backgroundColor: 'transparent', borderColor: colors.cyan }]}
+                  ><Feather name="camera" size={17} color={colors.cyan} /></Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isDone }}
+                    accessibilityLabel={`${isDone ? 'Undo' : 'Complete'} ${habit.title}`}
+                    testID={`habit-complete-${habit.id}`}
+                    disabled={completeHabit.isPending || undoHabit.isPending || showArchived}
+                    onPress={() => {
+                      const onSuccess = () => {
+                        invalidatePixelQuest(queryClient);
+                        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      };
+                      if (isDone) {
+                        undoHabit.mutate({ habitId: habit.id, data: { date: today } }, { onSuccess });
+                      } else {
+                        completeHabit.mutate({ habitId: habit.id, data: { date: today } }, { onSuccess });
+                      }
+                    }}
+                    style={[
+                      styles.completeButton,
+                      { backgroundColor: isDone ? colors.cyan : 'transparent', borderColor: isDone ? colors.cyan : colors.border },
+                    ]}
+                  >
+                    <Feather name={isDone ? 'check' : 'plus'} size={17} color={isDone ? colors.background : colors.cyan} />
+                  </Pressable>
+                )}
               </View>
 
               <View style={styles.heatmapHead}>
@@ -358,6 +393,7 @@ export default function HabitsScreen() {
           />
         )}
       </View>
+      {photoTarget ? <PhotoProofModal target={photoTarget} onClose={() => setPhotoTarget(null)} /> : null}
     </PixelPage>
   );
 }
@@ -369,6 +405,12 @@ const styles = StyleSheet.create({
   dayPicker: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
   dayButton: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontFamily: 'DMSans_700Bold', fontSize: 12 },
+  photoProofToggle: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  photoProofCopy: { flex: 1, gap: 4 },
+  priorityText: { flex: 1, fontFamily: 'DMSans_700Bold', fontSize: 11 },
+  photoProofHint: { fontFamily: 'DMSans_400Regular', fontSize: 11, lineHeight: 16 },
+  switchTrack: { width: 40, height: 23, padding: 3, justifyContent: 'center' },
+  switchKnob: { width: 17, height: 17 },
   formActions: { flexDirection: 'row', gap: 8, marginTop: 2 },
   habitCard: { marginBottom: 12 },
   habitHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },

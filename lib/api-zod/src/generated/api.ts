@@ -65,6 +65,7 @@ export const GetRpgStateResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 }).and(zod.object({
@@ -89,6 +90,7 @@ export const GetRpgStateResponse = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -296,6 +298,7 @@ export const PerformRpgActionBody = zod.object({
   "savingsPerQuest": zod.number().min(performRpgActionBodySavingsPerQuestMin).max(performRpgActionBodySavingsPerQuestMax).optional(),
   "timezone": zod.string().max(performRpgActionBodyTimezoneMax).optional(),
   "chestEnabled": zod.boolean().optional(),
+  "requiresPhotoProof": zod.boolean().optional(),
   "equipped": zod.boolean().optional(),
   "username": zod.string().regex(performRpgActionBodyUsernameRegExp).optional(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional(),
@@ -356,6 +359,7 @@ export const PerformRpgActionResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 }).and(zod.object({
@@ -380,6 +384,7 @@ export const PerformRpgActionResponse = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -557,6 +562,224 @@ export const ParseVoiceResponse = zod.object({
 
 
 /**
+ * @summary Verify photo proof and complete an opted-in habit or quest
+ */
+
+export const verifyPhotoBodyImageBase64Max = 7000000;
+
+
+
+export const VerifyPhotoBody = zod.object({
+  "itemType": zod.enum(['habit', 'quest']),
+  "itemId": zod.number().int().min(1),
+  "imageBase64": zod.string().min(1).max(verifyPhotoBodyImageBase64Max),
+  "mimeType": zod.enum(['image/jpeg', 'image/png', 'image/webp'])
+})
+
+export const verifyPhotoResponseReasonMax = 500;
+
+export const verifyPhotoResponseSnapshotRewardsItemTwoConditionsItemTargetMax = 1000000;
+
+
+
+export const VerifyPhotoResponse = zod.object({
+  "isVerified": zod.boolean(),
+  "reason": zod.string().min(1).max(verifyPhotoResponseReasonMax),
+  "snapshot": zod.object({
+  "today": zod.string(),
+  "timezone": zod.string(),
+  "hp": zod.number().int(),
+  "faintedUntil": zod.string().nullable(),
+  "campingToday": zod.boolean(),
+  "stateSince": zod.string(),
+  "profile": zod.object({
+  "username": zod.string(),
+  "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "selectedTheme": zod.enum(['retro', 'anime', 'cyberpunk', 'parchment', 'brutalist', 'cozy']),
+  "themeUpdatedAt": zod.coerce.date(),
+  "level": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "lifetimeTasksVanquished": zod.number().int(),
+  "highestHabitStreak": zod.number().int(),
+  "habitStreaks": zod.array(zod.object({
+  "habitId": zod.number().int(),
+  "habitTitle": zod.string(),
+  "currentStreak": zod.number().int(),
+  "highestStreak": zod.number().int()
+})),
+  "avatars": zod.array(zod.object({
+  "id": zod.enum(['novice', 'squire', 'knight', 'paladin']),
+  "name": zod.string(),
+  "role": zod.string(),
+  "description": zod.string(),
+  "requiredLevel": zod.number().int(),
+  "unlocked": zod.boolean()
+})),
+  "milestones": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "achievedAt": zod.coerce.date()
+}))
+}),
+  "skills": zod.object({
+  "STR": zod.number().int(),
+  "INT": zod.number().int(),
+  "WIS": zod.number().int()
+}),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "frequency": zod.enum(['daily', 'weekly']),
+  "days": zod.array(zod.number().int()),
+  "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "completedDates": zod.array(zod.coerce.date())
+}).and(zod.object({
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
+  "progress": zod.number(),
+  "streak": zod.number().int(),
+  "bestStreak": zod.number().int(),
+  "scheduledToday": zod.boolean(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "status": zod.enum(['complete', 'partial', 'missed', 'off', 'protected', 'upcoming']),
+  "value": zod.number(),
+  "target": zod.number()
+}))
+}))),
+  "quests": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
+  "category": zod.string(),
+  "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
+  "status": zod.enum(['active', 'completed']),
+  "dueDate": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+}).and(zod.object({
+  "tags": zod.array(zod.string()),
+  "type": zod.enum(['single', 'weekly']),
+  "xpReward": zod.number().int(),
+  "goldReward": zod.number().int()
+}))),
+  "rewards": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string(),
+  "ruleType": zod.enum(['streak', 'gold', 'level']),
+  "target": zod.number().int(),
+  "habitId": zod.number().int().nullable(),
+  "habitTitle": zod.string().nullable(),
+  "currentValue": zod.number().int(),
+  "progressText": zod.string(),
+  "status": zod.enum(['locked', 'ready', 'claimed']),
+  "claimedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "conditions": zod.array(zod.object({
+  "type": zod.enum(['level', 'streak', 'gold']),
+  "target": zod.number().int().min(1).max(verifyPhotoResponseSnapshotRewardsItemTwoConditionsItemTargetMax),
+  "habitId": zod.number().int().nullish(),
+  "current": zod.number().optional(),
+  "met": zod.boolean().optional(),
+  "label": zod.string().optional()
+})),
+  "claimCost": zod.number().int(),
+  "savingsTarget": zod.number(),
+  "savedAmount": zod.number(),
+  "savingsPerQuest": zod.number()
+}))),
+  "inventory": zod.array(zod.object({
+  "id": zod.string(),
+  "catalogId": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number().int(),
+  "equipped": zod.boolean(),
+  "requiredLevel": zod.number().int()
+})),
+  "merchant": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number().int(),
+  "requiredLevel": zod.number().int(),
+  "consumable": zod.boolean()
+})),
+  "bosses": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "hp": zod.number().int(),
+  "maxHp": zod.number().int(),
+  "taskIds": zod.array(zod.number().int()),
+  "defeated": zod.boolean(),
+  "bonusGold": zod.number().int(),
+  "loot": zod.string()
+})),
+  "currentWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "previousWeek": zod.object({
+  "start": zod.string(),
+  "end": zod.string(),
+  "completionRate": zod.number(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "xp": zod.number().int(),
+  "gold": zod.number().int(),
+  "habits": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "completed": zod.number().int(),
+  "opportunities": zod.number().int(),
+  "rate": zod.number()
+}))
+}),
+  "chest": zod.object({
+  "enabled": zod.boolean(),
+  "eligible": zod.boolean(),
+  "opened": zod.boolean(),
+  "outcome": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "date": zod.string(),
+  "outcome": zod.string()
+})),
+  "rewards": zod.array(zod.object({
+  "label": zod.string(),
+  "probability": zod.number()
+}))
+}),
+  "rules": zod.array(zod.string()),
+  "message": zod.string(),
+  "effect": zod.enum(['none', 'complete', 'boss', 'reward'])
+}).optional()
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */
@@ -690,6 +913,7 @@ export const GetHabitsResponseItem = zod.object({
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -710,7 +934,8 @@ export const CreateHabitBody = zod.object({
   "title": zod.string().min(1),
   "category": zod.string().min(1),
   "frequency": zod.enum(['daily', 'weekly']),
-  "days": zod.array(zod.number().int().min(createHabitBodyDaysItemMin).max(createHabitBodyDaysItemMax))
+  "days": zod.array(zod.number().int().min(createHabitBodyDaysItemMin).max(createHabitBodyDaysItemMax)),
+  "requiresPhotoProof": zod.boolean().optional()
 })
 
 export const CreateHabitResponse = zod.object({
@@ -720,6 +945,7 @@ export const CreateHabitResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -744,7 +970,8 @@ export const UpdateHabitBody = zod.object({
   "category": zod.string().min(1).optional(),
   "frequency": zod.enum(['daily', 'weekly']).optional(),
   "days": zod.array(zod.number().int().min(updateHabitBodyDaysItemMin).max(updateHabitBodyDaysItemMax)).optional(),
-  "archived": zod.boolean().optional()
+  "archived": zod.boolean().optional(),
+  "requiresPhotoProof": zod.boolean().optional()
 })
 
 export const UpdateHabitResponse = zod.object({
@@ -754,6 +981,7 @@ export const UpdateHabitResponse = zod.object({
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -814,6 +1042,7 @@ export const GetTasksResponseItem = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -834,6 +1063,7 @@ export const CreateTaskBody = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string().min(1),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean().optional(),
   "dueDate": zod.coerce.date().nullish()
 })
 
@@ -843,6 +1073,7 @@ export const CreateTaskResponse = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -866,6 +1097,7 @@ export const UpdateTaskBody = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']).optional(),
   "category": zod.string().min(1).optional(),
   "priority": zod.boolean().optional(),
+  "requiresPhotoProof": zod.boolean().optional(),
   "dueDate": zod.coerce.date().nullish()
 })
 
@@ -875,6 +1107,7 @@ export const UpdateTaskResponse = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -928,6 +1161,7 @@ export const UndoTaskCompletionResponse = zod.object({
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "category": zod.string(),
   "priority": zod.boolean(),
+  "requiresPhotoProof": zod.boolean(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),

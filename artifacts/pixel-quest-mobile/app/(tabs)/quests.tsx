@@ -15,6 +15,7 @@ import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
 import { invalidatePixelQuest } from '@/lib/pixel-quest';
 import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
+import { PhotoProofModal, type PhotoProofTarget } from '@/components/PhotoProofModal';
 import {
   ChoiceChip,
   EmptyState,
@@ -60,6 +61,8 @@ export default function QuestsScreen() {
   const [difficulty, setDifficulty] = useState<QuestTaskDifficulty>('medium');
   const [priority, setPriority] = useState(false);
   const [dueDate, setDueDate] = useState('');
+  const [requiresPhotoProof, setRequiresPhotoProof] = useState(false);
+  const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const allTasks = tasksQuery.data ?? [];
   const visibleTasks = allTasks.filter((task) => {
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
@@ -77,6 +80,7 @@ export default function QuestsScreen() {
     setDifficulty('medium');
     setPriority(false);
     setDueDate('');
+    setRequiresPhotoProof(false);
   };
   const didSave = () => {
     invalidatePixelQuest(queryClient);
@@ -95,6 +99,7 @@ export default function QuestsScreen() {
     setDifficulty(task.difficulty);
     setPriority(task.priority);
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : '');
+    setRequiresPhotoProof(task.requiresPhotoProof);
     setShowForm(true);
     setConfirmDeleteId(null);
   };
@@ -108,6 +113,7 @@ export default function QuestsScreen() {
       category: category.trim() || 'Side Quest',
       priority,
       dueDate: dueDate.trim() || null,
+      requiresPhotoProof,
     };
     if (editingId) {
       if (offline.online === false) {
@@ -136,6 +142,7 @@ export default function QuestsScreen() {
     setDifficulty(input.difficulty ?? 'medium');
     setPriority(input.priority ?? false);
     setDueDate(input.dueDate ?? '');
+    setRequiresPhotoProof(input.requiresPhotoProof ?? false);
     setShowForm(true);
     setDraftError('');
   };
@@ -230,6 +237,23 @@ export default function QuestsScreen() {
               <View style={[styles.switchKnob, { backgroundColor: colors.foreground, alignSelf: priority ? 'flex-end' : 'flex-start' }]} />
             </View>
           </Pressable>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: requiresPhotoProof }}
+            accessibilityLabel="Require Photo Proof"
+            testID="switch-quest-photo-proof"
+            onPress={() => setRequiresPhotoProof(value => !value)}
+            style={styles.priorityToggle}
+          >
+            <Feather name="camera" size={17} color={requiresPhotoProof ? colors.cyan : colors.mutedForeground} />
+            <View style={styles.photoProofCopy}>
+              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF</Text>
+              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>Must upload a photo to verify completion and claim rewards.</Text>
+            </View>
+            <View style={[styles.switchTrack, { backgroundColor: requiresPhotoProof ? colors.cyan : colors.secondary }]}>
+              <View style={[styles.switchKnob, { backgroundColor: colors.foreground, alignSelf: requiresPhotoProof ? 'flex-end' : 'flex-start' }]} />
+            </View>
+          </Pressable>
           <View style={styles.formActions}>
             <PixelButton
               label={draftSaving || updateTask.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD QUEST'}
@@ -299,30 +323,41 @@ export default function QuestsScreen() {
         {visibleTasks.length ? visibleTasks.map((task) => (
           <Panel key={task.id} style={styles.taskCard}>
             <View style={styles.taskTop}>
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: task.status === 'completed' }}
-                accessibilityLabel={`${task.status === 'completed' ? 'Reopen' : 'Complete'} ${task.title}`}
-                testID={`quest-toggle-${task.id}`}
-                disabled={completeTask.isPending || undoTask.isPending}
-                onPress={() => {
-                  const onSuccess = () => {
-                    invalidatePixelQuest(queryClient);
-                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  };
-                  if (task.status === 'completed') {
-                    undoTask.mutate({ taskId: task.id }, { onSuccess });
-                  } else {
-                    completeTask.mutate({ taskId: task.id }, { onSuccess });
-                  }
-                }}
-                style={[
-                  styles.checkbox,
-                  { borderColor: task.status === 'completed' ? colors.success : colors.border, backgroundColor: task.status === 'completed' ? colors.success : 'transparent' },
-                ]}
-              >
-                {task.status === 'completed' ? <Feather name="check" size={15} color={colors.background} /> : null}
-              </Pressable>
+              {task.requiresPhotoProof && task.status !== 'completed' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Verify ${task.title} with a photo`}
+                  testID={`quest-photo-proof-${task.id}`}
+                  disabled={completeTask.isPending}
+                  onPress={() => setPhotoTarget({ itemType: 'quest', itemId: task.id, title: task.title })}
+                  style={[styles.checkbox, { borderColor: colors.cyan }]}
+                ><Feather name="camera" size={15} color={colors.cyan} /></Pressable>
+              ) : (
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: task.status === 'completed' }}
+                  accessibilityLabel={`${task.status === 'completed' ? 'Reopen' : 'Complete'} ${task.title}`}
+                  testID={`quest-toggle-${task.id}`}
+                  disabled={completeTask.isPending || undoTask.isPending}
+                  onPress={() => {
+                    const onSuccess = () => {
+                      invalidatePixelQuest(queryClient);
+                      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    };
+                    if (task.status === 'completed') {
+                      undoTask.mutate({ taskId: task.id }, { onSuccess });
+                    } else {
+                      completeTask.mutate({ taskId: task.id }, { onSuccess });
+                    }
+                  }}
+                  style={[
+                    styles.checkbox,
+                    { borderColor: task.status === 'completed' ? colors.success : colors.border, backgroundColor: task.status === 'completed' ? colors.success : 'transparent' },
+                  ]}
+                >
+                  {task.status === 'completed' ? <Feather name="check" size={15} color={colors.background} /> : null}
+                </Pressable>
+              )}
               <View style={styles.taskCopy}>
                 <Text style={[styles.taskTitle, { color: task.status === 'completed' ? colors.mutedForeground : colors.foreground }]}>{task.title}</Text>
                 <MetaText>{task.category.toUpperCase()}</MetaText>
@@ -404,6 +439,7 @@ export default function QuestsScreen() {
           />
         )}
       </View>
+      {photoTarget ? <PhotoProofModal target={photoTarget} onClose={() => setPhotoTarget(null)} /> : null}
     </PixelPage>
   );
 }
@@ -416,6 +452,8 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   priorityToggle: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8 },
   priorityText: { flex: 1, fontFamily: 'DMSans_700Bold', fontSize: 11 },
+  photoProofCopy: { flex: 1, gap: 4 },
+  photoProofHint: { fontFamily: 'DMSans_400Regular', fontSize: 11, lineHeight: 16 },
   switchTrack: { width: 40, height: 23, padding: 3, justifyContent: 'center' },
   switchKnob: { width: 17, height: 17 },
   formActions: { flexDirection: 'row', gap: 8 },

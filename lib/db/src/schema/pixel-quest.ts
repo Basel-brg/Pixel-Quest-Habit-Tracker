@@ -41,6 +41,7 @@ export const habitsTable = pgTable("pixel_quest_habits", {
   frequency: text("frequency").notNull().default("daily"),
   days: integer("days").array().notNull().default(sql`'{}'::integer[]`),
   archived: boolean("archived").notNull().default(false),
+  requiresPhotoProof: boolean("requires_photo_proof").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -76,6 +77,7 @@ export const questTasksTable = pgTable("pixel_quest_tasks", {
   difficulty: text("difficulty").notNull().default("medium"),
   category: text("category").notNull(),
   priority: boolean("priority").notNull().default(false),
+  requiresPhotoProof: boolean("requires_photo_proof").notNull().default(false),
   status: text("status").notNull().default("active"),
   dueDate: date("due_date", { mode: "string" }),
   createdAt: timestamp("created_at", { withTimezone: true })

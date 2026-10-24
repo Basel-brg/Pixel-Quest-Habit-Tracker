@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, pool, pixelQuestUsersTable, playerProfileTable, habitsTable, habitCompletionsTable, questTasksTable } from "@workspace/db";
 import { runGame, GameError, type Action } from "./rpg-game";
 import { localDay, dayInstant, levelForXp, streaks, type HabitMeta } from "./rpg-rules";
+import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "./photo-verification";
 
 const accounts: string[] = [];
 const base = new Date("2026-10-20T10:00:00Z");
@@ -68,6 +69,55 @@ test("quest payouts and reopened quest payouts stay exact after edits", async ()
       s = await act(uid, { action: "completeQuest", id });
       assert.equal(s.profile.xp, xp); assert.equal(s.profile.gold, gold); assert.equal(s.profile.lifetimeTasksVanquished, 3);
     }
+  }
+});
+test("photo proof defaults off and gates protected RPG completions without changing standard payouts", async () => {
+  const uid = await account();
+  let s = await act(uid, { action: "saveHabit", title: "Unprotected habit" });
+  assert.equal(s.habits[0].requiresPhotoProof, false);
+  s = await act(uid, { action: "saveHabit", title: "Protected habit", requiresPhotoProof: true });
+  const habitId = s.habits[0].id;
+  await reject(act(uid, { action: "progressHabit", id: habitId, value: 1 }), 409);
+  s = await runGame(uid, { action: "progressHabit", id: habitId, value: 1, date: s.today, requestId: randomUUID() }, base, undefined, {
+    itemType: "habit", itemId: habitId, date: s.today,
+  });
+  assert.equal(s.profile.xp, 25);
+  assert.equal(s.profile.gold, 510);
+  s = await act(uid, { action: "saveHabit", id: habitId, title: "Renamed protected habit" });
+  assert.equal(s.habits.find(habit => habit.id === habitId)?.requiresPhotoProof, true);
+  s = await act(uid, { action: "saveQuest", title: "Protected quest", difficulty: "easy", requiresPhotoProof: true });
+  const questId = s.quests[0].id;
+  await reject(act(uid, { action: "completeQuest", id: questId }), 409);
+  s = await runGame(uid, { action: "completeQuest", id: questId, completed: true, requestId: randomUUID() }, base, undefined, {
+    itemType: "quest", itemId: questId, date: s.today,
+  });
+  assert.equal(s.profile.xp, 35);
+  assert.equal(s.profile.gold, 515);
+  assert.equal(s.quests.find(quest => quest.id === questId)?.requiresPhotoProof, true);
+});
+test("photo verification validates image bytes and parses a structured provider decision", async () => {
+  const originalFetch = globalThis.fetch;
+  process.env.GEMINI_API_KEY = "test-only-key";
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const request = JSON.parse(String(init?.body)) as {
+      contents: { parts: { text?: string; inline_data?: { mime_type?: string; data?: string } }[] }[];
+    };
+    assert.equal(request.contents[0]?.parts[1]?.inline_data?.mime_type, "image/png");
+    assert.equal(request.contents[0]?.parts[1]?.inline_data?.data, "cGhvdG8=");
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"isVerified":true,"reason":"The photo shows the completed activity."}' }] } }] }), {
+      status: 200, headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    assert.equal(decodePhoto("cGhvdG8=", "image/png").toString(), "photo");
+    assert.throws(() => decodePhoto("not-base64", "image/png"), PhotoVerificationError);
+    assert.throws(() => decodePhoto("cGhvdG8=", "image/gif"), PhotoVerificationError);
+    assert.deepEqual(await verifyPhotoEvidence(Buffer.from("photo"), "image/png", "habit", "Read for 20 minutes"), {
+      isVerified: true, reason: "The photo shows the completed activity.",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.GEMINI_API_KEY;
   }
 });
 test("spent completion Gold cannot be undone and re-earned", async () => {
@@ -162,14 +212,15 @@ test("daily chest races, qualifying undo and retry cannot duplicate prizes", asy
   let s = await act(uid, { action: "saveHabit", title: "Daily" }); const id = s.habits[0].id;
   assert.equal(s.chest.eligible, false);
   await act(uid, { action: "progressHabit", id, value: 1 });
-  const rid = randomUUID();
-  const draws = await Promise.allSettled([act(uid, { action: "drawChest" }, base, rid), act(uid, { action: "drawChest" })]);
+  const requestIds = [randomUUID(), randomUUID()];
+  const draws = await Promise.allSettled(requestIds.map(requestId => act(uid, { action: "drawChest" }, base, requestId)));
   assert.equal(draws.filter(r => r.status === "fulfilled").length, 1);
   s = await runGame(uid, undefined, base); assert.equal(s.chest.opened, true); assert.equal(s.chest.history.length, 1);
   assert.ok(s.chest.rewards.some(r => r.label === s.chest.outcome));
   await reject(act(uid, { action: "progressHabit", id, value: 0 }));
   const gold = s.profile.gold;
-  s = await act(uid, { action: "drawChest" }, base, rid); assert.equal(s.profile.gold, gold);
+  const winningRequestId = requestIds[draws.findIndex(result => result.status === "fulfilled")];
+  s = await act(uid, { action: "drawChest" }, base, winningRequestId); assert.equal(s.profile.gold, gold);
 });
 test("accounts cannot mutate each other's habits, quests, rewards or inventory", async () => {
   const a = await account(), b = await account();

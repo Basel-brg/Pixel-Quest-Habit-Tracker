@@ -6,11 +6,12 @@ import { db, pixelQuestUsersTable, playerProfileTable, playerMilestonesTable } f
 import {
   PerformRpgActionBody, CreateHabitBody, UpdateHabitBody, CompleteHabitBody, UndoHabitCompletionBody,
   CreateTaskBody, UpdateTaskBody, CreateRewardBody, UpdateRewardBody, UpdatePixelQuestProfileBody,
-  GetTasksQueryParams, GetHabitsQueryParams, ParseVoiceBody, ParseVoiceResponse,
+  GetTasksQueryParams, GetHabitsQueryParams, ParseVoiceBody, ParseVoiceResponse, VerifyPhotoBody, VerifyPhotoResponse,
 } from "@workspace/api-zod";
 import { runGame, GameError, type Action, type ActionOutcome } from "../lib/rpg-game";
 import { levelForXp } from "../lib/rpg-rules";
 import { decodeVoiceAudio, parseVoiceAudio, VoiceProcessingError } from "../lib/voice-intake";
+import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "../lib/photo-verification";
 
 declare global { namespace Express { interface Request { pixelQuestUserId?: string } } }
 const router: IRouter = Router();
@@ -38,6 +39,15 @@ const requestId = (req: Request) => req.get("Idempotency-Key") ?? randomUUID();
 const action = (req: Request, input: Omit<Action, "requestId">, outcome?: ActionOutcome) => runGame(uid(req), PerformRpgActionBody.parse({ ...input, requestId: requestId(req) }), new Date(), outcome);
 const find = <T extends { id: number }>(rows: T[], n: number) => rows.find(x => x.id === n) ?? (() => { throw new GameError(404, "Owned record not found."); })();
 const voiceRequests = new Map<string, number[]>();
+const photoRequests = new Map<string, number[]>();
+function consumePhoto(body: { imageBase64: string; mimeType: string }, rawBody: unknown) {
+  const encoded = body.imageBase64;
+  body.imageBase64 = "";
+  if (rawBody && typeof rawBody === "object" && "imageBase64" in rawBody) {
+    (rawBody as { imageBase64?: unknown }).imageBase64 = "";
+  }
+  return decodePhoto(encoded, body.mimeType);
+}
 const profile = (s: Awaited<ReturnType<typeof runGame>>) => ({
   ...s.profile, ...levelForXp(s.profile.xp), streak: Math.max(0, ...s.profile.habitStreaks.map(h => h.currentStreak)),
   title: s.profile.avatars.filter(a => a.unlocked).at(-1)?.name ?? "Novice",
@@ -48,6 +58,14 @@ router.use("/pixelquest", async (req, res, next) => {
     const auth = getAuth(req), claim = auth.sessionClaims?.userId;
     const user = typeof claim === "string" ? claim : auth.userId;
     if (!user) { res.status(401).json({ error: "Sign in to access your player profile." }); return; }
+    req.pixelQuestUserId = user; await ensureAccount(user); next();
+  } catch (e) { next(e); }
+});
+router.use("/ai", async (req, res, next) => {
+  try {
+    const auth = getAuth(req), claim = auth.sessionClaims?.userId;
+    const user = typeof claim === "string" ? claim : auth.userId;
+    if (!user) { res.status(401).json({ error: "Sign in to verify photo proof." }); return; }
     req.pixelQuestUserId = user; await ensureAccount(user); next();
   } catch (e) { next(e); }
 });
@@ -74,6 +92,74 @@ router.post("/pixelquest/voice/parse", async (req, res) => {
   } catch (error) {
     if (error instanceof VoiceProcessingError) {
       if (error.status >= 500) req.log.warn({ status: error.status }, "Voice processing request failed");
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
+});
+router.post("/ai/verify-photo", async (req, res) => {
+  const parsed = VerifyPhotoBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Choose a valid JPEG, PNG, or WebP photo under 5 MB." });
+    return;
+  }
+  const now = Date.now();
+  const recent = (photoRequests.get(uid(req)) ?? []).filter(at => now - at < 60_000);
+  if (recent.length >= 5) {
+    res.status(429).json({ error: "Too many photo checks. Please wait a minute and try again." });
+    return;
+  }
+  recent.push(now);
+  photoRequests.set(uid(req), recent);
+
+  try {
+    const body = parsed.data;
+    const current = await runGame(uid(req));
+    let itemTitle = "";
+    let habitTarget = 1;
+    if (body.itemType === "habit") {
+      const habit = current.habits.find(item => item.id === body.itemId);
+      if (!habit) { res.status(404).json({ error: "Habit not found." }); return; }
+      if (!habit.requiresPhotoProof) { res.status(409).json({ error: "Photo proof is not enabled for this habit." }); return; }
+      if (habit.archived || !habit.scheduledToday || habit.progress >= habit.target) {
+        res.status(409).json({ error: "This habit cannot be completed with photo proof right now." });
+        return;
+      }
+      itemTitle = habit.title;
+      habitTarget = habit.target;
+    } else {
+      const quest = current.quests.find(item => item.id === body.itemId);
+      if (!quest) { res.status(404).json({ error: "Quest not found." }); return; }
+      if (!quest.requiresPhotoProof) { res.status(409).json({ error: "Photo proof is not enabled for this quest." }); return; }
+      if (quest.status === "completed") { res.status(409).json({ error: "This quest is already complete." }); return; }
+      itemTitle = quest.title;
+    }
+
+    const image = consumePhoto(body, req.body);
+    const decision = await (async () => {
+      try { return await verifyPhotoEvidence(image, body.mimeType, body.itemType, itemTitle); }
+      finally { image.fill(0); }
+    })();
+    if (!decision.isVerified) {
+      res.json(VerifyPhotoResponse.parse({ isVerified: false, reason: decision.reason }));
+      return;
+    }
+
+    const outcome: ActionOutcome = { xpEarned: 0, leveledUp: false, multiplier: 1 };
+    const proof = { itemType: body.itemType, itemId: body.itemId, date: current.today } as const;
+    const actionInput: Action = body.itemType === "habit"
+      ? PerformRpgActionBody.parse({ action: "progressHabit", id: body.itemId, value: habitTarget, date: current.today, requestId: randomUUID() })
+      : PerformRpgActionBody.parse({ action: "completeQuest", id: body.itemId, completed: true, requestId: randomUUID() });
+    const snapshot = await runGame(uid(req), actionInput, new Date(), outcome, proof);
+    const completed = body.itemType === "habit"
+      ? snapshot.habits.some(item => item.id === body.itemId && item.progress >= item.target)
+      : snapshot.quests.some(item => item.id === body.itemId && item.status === "completed");
+    if (!completed) throw new GameError(409, "The item changed during verification. Please try again.");
+    res.json(VerifyPhotoResponse.parse({ isVerified: true, reason: decision.reason, snapshot }));
+  } catch (error) {
+    if (error instanceof PhotoVerificationError) {
+      if (error.status >= 500) req.log.warn({ status: error.status }, "Photo verification request failed");
       res.status(error.status).json({ error: error.message });
       return;
     }

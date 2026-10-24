@@ -97,6 +97,7 @@ export interface RpgActionInput {
   /** @maxLength 100 */
   timezone?: string;
   chestEnabled?: boolean;
+  requiresPhotoProof?: boolean;
   equipped?: boolean;
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;

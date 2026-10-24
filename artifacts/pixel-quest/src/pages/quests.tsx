@@ -5,9 +5,10 @@ import { Btn, Empty, Field, Gate, Modal, PageHead, Panel, cx, fmtDate } from '@/
 import { useRpg } from '@/lib/rpg-context';
 import { useOfflineDrafts } from '@/lib/offline-drafts';
 import { OfflineDraftList } from '@/components/offline-draft-list';
+import { PhotoProofButton } from '@/components/photo-proof';
 
-interface Draft { id?: number; title: string; category: string; difficulty: RpgActionInputDifficulty; priority: boolean; dueDate: string; tags: string; type: RpgActionInputType }
-const blank: Draft = { title: '', category: 'General', difficulty: 'easy', priority: false, dueDate: '', tags: '', type: 'single' };
+interface Draft { id?: number; title: string; category: string; difficulty: RpgActionInputDifficulty; priority: boolean; dueDate: string; tags: string; type: RpgActionInputType; requiresPhotoProof: boolean }
+const blank: Draft = { title: '', category: 'General', difficulty: 'easy', priority: false, dueDate: '', tags: '', type: 'single', requiresPhotoProof: false };
 const diffColor = { easy: 'text-[color:var(--pq-cyan)]', medium: 'text-[color:var(--pq-gold)]', hard: 'text-[color:var(--pq-danger)]' };
 
 export default function QuestsPage() {
@@ -17,11 +18,11 @@ export default function QuestsPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState('');
-  const open = (q?: RpgQuest) => { setOfflineDraftId(null); setDraftError(''); setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type } : blank); };
+  const open = (q?: RpgQuest) => { setOfflineDraftId(null); setDraftError(''); setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type, requiresPhotoProof: q.requiresPhotoProof } : blank); };
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
     const tags = [...new Set(draft.tags.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 10);
-    const input = { action: 'saveQuest' as const, id: draft.id, title: draft.title.trim(), category: draft.category.trim() || 'General', difficulty: draft.difficulty, priority: draft.priority, dueDate: draft.dueDate || null, tags, type: draft.type };
+    const input = { action: 'saveQuest' as const, id: draft.id, title: draft.title.trim(), category: draft.category.trim() || 'General', difficulty: draft.difficulty, priority: draft.priority, dueDate: draft.dueDate || null, tags, type: draft.type, requiresPhotoProof: draft.requiresPhotoProof };
     if (draft.id && !offline.online) { setDraftError('Editing an existing quest requires an internet connection.'); return; }
     if (draft.id) {
       const result = await run(input, { key: 'saveQuest:editor' });
@@ -53,6 +54,7 @@ export default function QuestsPage() {
           dueDate: input.dueDate ?? '',
           tags: input.tags?.join(', ') ?? '',
           type: input.type ?? 'single',
+          requiresPhotoProof: input.requiresPhotoProof ?? false,
         });
       }}/>
       <Panel>
@@ -61,10 +63,10 @@ export default function QuestsPage() {
           <div className="flex flex-wrap gap-2" role="group" aria-label="Difficulty">{['all', 'easy', 'medium', 'hard'].map((x) => <button key={x} data-testid={`filter-difficulty-${x}`} aria-pressed={diff === x} onClick={() => setDiff(x)} className={chip(diff === x)}>{x}</button>)}</div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Type">{['all', 'single', 'weekly'].map((x) => <button key={x} data-testid={`filter-type-${x}`} aria-pressed={type === x} onClick={() => setType(x)} className={chip(type === x)}>{x === 'all' ? 'any type' : x}</button>)}</div>
           {allTags.length > 0 && <div className="flex flex-wrap gap-2" role="group" aria-label="Tags">{['all', ...allTags].map((x) => <button key={x} data-testid={`filter-tag-${x}`} aria-pressed={tag === x} onClick={() => setTag(x)} className={chip(tag === x)}>{x === 'all' ? 'any tag' : `#${x}`}</button>)}</div>}</div>
-        {list.length ? <div className="divide-y divide-[color:var(--pq-line3)]">{list.map((q) => { const done = q.status === 'completed'; return <div key={q.id} data-testid={`quest-row-${q.id}`} className="flex items-center gap-3 py-4">
-          <button data-testid={`button-complete-task-${q.id}`} disabled={isPending(`completeQuest:${q.id}`)} aria-label={`${done ? 'Reopen' : 'Complete'} ${q.title}`} onClick={() => void run({ action: 'completeQuest', id: q.id, completed: !done }, { optimistic: (x) => ({ ...x, quests: x.quests.map((y) => (y.id === q.id ? { ...y, status: done ? 'active' : 'completed' } : y)) }) })} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2 disabled:opacity-40', done ? 'border-[color:var(--pq-cyan)] bg-[color:var(--pq-cyan)] text-[color:var(--pq-panel2)]' : 'border-[color:var(--pq-mute)] text-[color:var(--pq-mute)] hover:border-[color:var(--pq-gold)] hover:text-[color:var(--pq-gold)]')}>{done ? <RotateCcw size={14}/> : <Check size={15}/>}</button>
+         {list.length ? <div className="divide-y divide-[color:var(--pq-line3)]">{list.map((q) => { const done = q.status === 'completed'; return <div key={q.id} data-testid={`quest-row-${q.id}`} className="flex items-center gap-3 py-4">
+           {q.requiresPhotoProof && !done ? <PhotoProofButton itemType="quest" itemId={q.id} title={q.title} disabled={isPending(`completeQuest:${q.id}`)}/> : <button data-testid={`button-complete-task-${q.id}`} disabled={isPending(`completeQuest:${q.id}`)} aria-label={`${done ? 'Reopen' : 'Complete'} ${q.title}`} onClick={() => void run({ action: 'completeQuest', id: q.id, completed: !done }, { optimistic: (x) => ({ ...x, quests: x.quests.map((y) => (y.id === q.id ? { ...y, status: done ? 'active' : 'completed' } : y)) }) })} className={cx('grid h-8 w-8 shrink-0 place-items-center border-2 disabled:opacity-40', done ? 'border-[color:var(--pq-cyan)] bg-[color:var(--pq-cyan)] text-[color:var(--pq-panel2)]' : 'border-[color:var(--pq-mute)] text-[color:var(--pq-mute)] hover:border-[color:var(--pq-gold)] hover:text-[color:var(--pq-gold)]')}>{done ? <RotateCcw size={14}/> : <Check size={15}/>}</button>}
           <div className="min-w-0 flex-1"><p className={cx('text-sm font-semibold', done && 'text-[color:var(--pq-mute2)] line-through')}>{q.priority && <b className="mr-2 text-[color:var(--pq-danger)]">!</b>}{q.title}</p>
-            <p className="mt-1 text-[11px] text-[color:var(--pq-mute)]"><span className={cx('font-mono uppercase', diffColor[q.difficulty])}>{q.difficulty}</span> · {q.type} · {q.category} · {q.xpReward} XP / {q.goldReward} G{q.dueDate && ` · due ${fmtDate(q.dueDate)}`}</p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] text-[color:var(--pq-mute)]"><span className={cx('font-mono uppercase', diffColor[q.difficulty])}>{q.difficulty}</span><span>· {q.type} · {q.category} ·</span><span className="whitespace-nowrap">{q.xpReward} XP / {q.goldReward} G</span>{q.dueDate && <span>· due {fmtDate(q.dueDate)}</span>}</p>
             {q.tags.length > 0 && <p className="mt-1 flex flex-wrap gap-1.5">{q.tags.map((t) => <span key={t} className="border border-[color:var(--pq-line2)] px-1.5 text-[10px] text-[color:var(--pq-cyan)]">#{t}</span>)}</p>}</div>
           <button data-testid={`button-edit-task-${q.id}`} aria-label={`Edit ${q.title}`} onClick={() => open(q)} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><Pencil size={14}/></button>
           <button data-testid={`button-delete-task-${q.id}`} aria-label={`Delete ${q.title}`} disabled={isPending(`deleteQuest:${q.id}`)} onClick={() => { if (window.confirm(`Delete "${q.title}"?`)) void run({ action: 'deleteQuest', id: q.id }); }} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-danger)] disabled:opacity-40"><Trash2 size={14}/></button></div>; })}</div>
@@ -77,6 +79,7 @@ export default function QuestsPage() {
           <Field label="Due date"><input type="date" data-testid="input-quest-due" value={draft.dueDate} onChange={(e) => upd('dueDate', e.target.value)} className="field"/></Field></div>
         <Field label="Tags" hint="Comma separated, up to 10."><input data-testid="input-quest-tags" value={draft.tags} onChange={(e) => upd('tags', e.target.value)} className="field"/></Field>
         <label className="flex items-center gap-3 text-sm"><input type="checkbox" data-testid="checkbox-quest-priority" checked={draft.priority} onChange={(e) => upd('priority', e.target.checked)} className="h-4 w-4 accent-[color:var(--pq-gold)]"/>Priority quest</label>
+         <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-quest-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">Must upload a photo to verify completion and claim rewards.</span></span></label>
         <div className="flex justify-end gap-2"><Btn testId="button-cancel-quest" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-quest" type="submit" disabled={isPending('saveQuest:editor')}>{isPending('saveQuest:editor') ? 'Saving...' : 'Save quest'}</Btn></div></form></Modal>}
     </>;
   }}</Gate>;

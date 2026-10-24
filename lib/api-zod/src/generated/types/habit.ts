@@ -14,6 +14,7 @@ export interface Habit {
   frequency: HabitFrequency;
   days: number[];
   archived: boolean;
+  requiresPhotoProof: boolean;
   createdAt: Date;
   completedDates: Date[];
 }

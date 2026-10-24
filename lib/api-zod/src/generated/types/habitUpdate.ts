@@ -19,4 +19,5 @@ export interface HabitUpdate {
      */
   days?: number[];
   archived?: boolean;
+  requiresPhotoProof?: boolean;
 }

@@ -79,6 +79,38 @@ paths:
           description: Speech or parsing provider failed
         "503":
           description: Voice processing is not configured
+  /ai/verify-photo:
+    post:
+      operationId: verifyPhoto
+      tags: [pixel-quest]
+      summary: Verify photo proof and complete an opted-in habit or quest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoVerificationInput"
+      responses:
+        "200":
+          description: Verification result; successful verification includes the updated RPG state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoVerificationResult"
+        "400":
+          description: Invalid image data or unsupported image format
+        "401":
+          description: Sign in required
+        "404":
+          description: Owned item not found
+        "409":
+          description: Photo proof is disabled or the item cannot be completed
+        "429":
+          description: Photo verification request limit reached
+        "502":
+          description: Image verification provider failed
+        "503":
+          description: Photo verification is not configured
   /healthz:
     get:
       operationId: healthCheck
@@ -692,6 +724,7 @@ components:
         savingsPerQuest: { type: number, minimum: 0, maximum: 100000 }
         timezone: { type: string, maxLength: 100 }
         chestEnabled: { type: boolean }
+        requiresPhotoProof: { type: boolean }
         equipped: { type: boolean }
         username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
@@ -704,6 +737,21 @@ components:
         mimeType:
           type: string
           enum: [audio/webm, audio/mp4, audio/m4a, audio/aac, audio/ogg, audio/wav, audio/mpeg]
+    PhotoVerificationInput:
+      type: object
+      required: [itemType, itemId, imageBase64, mimeType]
+      properties:
+        itemType: { type: string, enum: [habit, quest] }
+        itemId: { type: integer, minimum: 1 }
+        imageBase64: { type: string, minLength: 1, maxLength: 7000000 }
+        mimeType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+    PhotoVerificationResult:
+      type: object
+      required: [isVerified, reason]
+      properties:
+        isVerified: { type: boolean }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        snapshot: { $ref: "#/components/schemas/RpgSnapshot" }
     VoiceTask:
       type: object
       required: [title, confidence]
@@ -748,7 +796,7 @@ components:
         - status
     Habit:
       type: object
-      required: [id, title, category, frequency, days, archived, createdAt, completedDates]
+      required: [id, title, category, frequency, days, archived, requiresPhotoProof, createdAt, completedDates]
       properties:
         id: { type: integer }
         title: { type: string }
@@ -758,6 +806,7 @@ components:
           type: array
           items: { type: integer }
         archived: { type: boolean }
+        requiresPhotoProof: { type: boolean }
         createdAt: { type: string, format: date-time }
         completedDates:
           type: array
@@ -772,6 +821,7 @@ components:
         days:
           type: array
           items: { type: integer, minimum: 0, maximum: 6 }
+        requiresPhotoProof: { type: boolean }
     HabitUpdate:
       type: object
       properties:
@@ -782,6 +832,7 @@ components:
           type: array
           items: { type: integer, minimum: 0, maximum: 6 }
         archived: { type: boolean }
+        requiresPhotoProof: { type: boolean }
     CompletionInput:
       type: object
       required: [date]
@@ -794,13 +845,14 @@ components:
         date: { type: string, format: date }
     QuestTask:
       type: object
-      required: [id, title, difficulty, category, priority, status, dueDate, createdAt, completedAt]
+      required: [id, title, difficulty, category, priority, requiresPhotoProof, status, dueDate, createdAt, completedAt]
       properties:
         id: { type: integer }
         title: { type: string }
         difficulty: { type: string, enum: [easy, medium, hard] }
         category: { type: string }
         priority: { type: boolean }
+        requiresPhotoProof: { type: boolean }
         status: { type: string, enum: [active, completed] }
         dueDate: { type: [string, "null"], format: date }
         createdAt: { type: string, format: date-time }
@@ -813,6 +865,7 @@ components:
         difficulty: { type: string, enum: [easy, medium, hard] }
         category: { type: string, minLength: 1 }
         priority: { type: boolean }
+        requiresPhotoProof: { type: boolean }
         dueDate: { type: [string, "null"], format: date }
     TaskUpdate:
       type: object
@@ -821,6 +874,7 @@ components:
         difficulty: { type: string, enum: [easy, medium, hard] }
         category: { type: string, minLength: 1 }
         priority: { type: boolean }
+        requiresPhotoProof: { type: boolean }
         dueDate: { type: [string, "null"], format: date }
     PlayerProfile:
       type: object

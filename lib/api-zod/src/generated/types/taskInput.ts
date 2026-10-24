@@ -14,6 +14,7 @@ export interface TaskInput {
   /** @minLength 1 */
   category: string;
   priority: boolean;
+  requiresPhotoProof?: boolean;
   /** @nullable */
   dueDate?: Date | null;
 }

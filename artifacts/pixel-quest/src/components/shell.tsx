@@ -6,6 +6,7 @@ import { usePrefs } from '@/lib/feedback';
 import { useRpg } from '@/lib/rpg-context';
 import AchievementShareDialog from '@/components/achievement-share-dialog';
 import { useTheme } from '@/lib/theme';
+import { AvatarQuickSwitch } from '@/components/avatar-quick-switch';
 
 const nav = [
   { href: '/camp', label: 'Camp', short: 'Camp', icon: Gamepad2 }, { href: '/habits', label: 'Habits', short: 'Habits', icon: Activity },
@@ -29,7 +30,10 @@ export function Shell({ children }: { children: ReactNode }) {
       <main className="min-w-0 flex-1 pb-[calc(env(safe-area-inset-bottom,0px)+6rem)] md:pb-8">
         <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-[color:var(--pq-line3)] bg-[color:var(--pq-bg)]/95 px-8 py-3 backdrop-blur-md md:flex">
           <p className="hidden text-xs text-[color:var(--pq-mute)] md:block">PLAYER JOURNAL <span className="mx-2 text-[color:var(--pq-mute)]">/</span> {path.slice(1).toUpperCase()}</p>
-          {snap && <span data-testid="text-today" className="text-xs text-[color:var(--pq-mute2)]">{snap.today} · {snap.timezone}</span>}
+          <div className="flex items-center gap-4">
+            {snap && <span data-testid="text-today" className="text-xs text-[color:var(--pq-mute2)]">{snap.today} · {snap.timezone}</span>}
+            <AvatarQuickSwitch/>
+          </div>
         </header>
         <div className="mx-auto max-w-[1160px] space-y-5 px-4 py-7 md:px-8 md:py-9">
           <ServerError/>

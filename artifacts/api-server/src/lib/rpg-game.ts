@@ -191,7 +191,7 @@ class Game {
         if (frequency === "weekly" && !days.length) fail("Choose at least one active weekday.", 400);
         const c: HabitConfig = { frequency, days: [...new Set(days)], active: !(a.archived ?? previous?.archived ?? false), target: a.target ?? old?.target ?? 1, unit: a.unit?.trim() ?? old?.unit ?? "completion", mandatory: a.mandatory ?? old?.mandatory ?? false, stat: a.stat ?? old?.stat ?? skill(a.category ?? "Wellbeing") };
         if (old && (this.j.habits[previous!.id].values[this.today] ?? 0) > 0 && ["target", "frequency", "days", "stat", "mandatory"].some(k => JSON.stringify(old[k as keyof HabitConfig]) !== JSON.stringify(c[k as keyof HabitConfig]))) fail("Clear today's progress before changing target, schedule, mandatory status or skill.");
-        const data = { title: a.title !== undefined ? titleOf(a) : previous?.title ?? fail("Title required.", 400), category: a.category?.trim() || previous?.category || "Wellbeing", frequency, days, archived: !c.active };
+        const data = { title: a.title !== undefined ? titleOf(a) : previous?.title ?? fail("Title required.", 400), category: a.category?.trim() || previous?.category || "Wellbeing", frequency, days, archived: !c.active, requiresPhotoProof: a.requiresPhotoProof ?? previous?.requiresPhotoProof ?? false };
         if (previous) {
           const [updated] = await this.tx.update(habitsTable).set(data).where(and(eq(habitsTable.id, previous.id), eq(habitsTable.userId, this.uid))).returning();
           this.habits = this.habits.map(h => h.id === updated.id ? updated : h);
@@ -233,7 +233,7 @@ class Game {
       case "saveQuest": {
         const q = a.id ? own(this.quests, a.id) : undefined;
         if (a.dueDate && !validateDate(a.dueDate)) fail("Use a valid YYYY-MM-DD due date.", 400);
-        const data = { title: a.title !== undefined ? titleOf(a) : q?.title ?? fail("Title required.", 400), category: a.category?.trim() || q?.category || "Personal", difficulty: a.difficulty ?? q?.difficulty ?? "medium", priority: a.priority ?? q?.priority ?? false, dueDate: a.dueDate !== undefined ? a.dueDate : q?.dueDate ?? null };
+        const data = { title: a.title !== undefined ? titleOf(a) : q?.title ?? fail("Title required.", 400), category: a.category?.trim() || q?.category || "Personal", difficulty: a.difficulty ?? q?.difficulty ?? "medium", priority: a.priority ?? q?.priority ?? false, requiresPhotoProof: a.requiresPhotoProof ?? q?.requiresPhotoProof ?? false, dueDate: a.dueDate !== undefined ? a.dueDate : q?.dueDate ?? null };
         const [saved] = q ? await this.tx.update(questTasksTable).set(data).where(and(eq(questTasksTable.id, q.id), eq(questTasksTable.userId, this.uid))).returning() : await this.tx.insert(questTasksTable).values({ ...data, userId: this.uid, createdAt: this.now }).returning();
         this.quests = [saved, ...this.quests.filter(x => x.id !== saved.id)];
         this.j.quests[saved.id] = { tags: a.tags ?? this.j.quests[saved.id]?.tags ?? [], type: a.type ?? this.j.quests[saved.id]?.type ?? "single" };
@@ -378,7 +378,10 @@ function freshJournal(now: Date): Journal {
   return { version: 1, since: today, timezone: "UTC", timezoneConfigured: false, timezoneChangedAt: null, lastSettled: addDays(today, -1), hp: 100, faintedUntil: null, habits: {}, quests: {}, rewards: {}, awards: {}, events: [], protections: {}, inventory: [], bosses: [], retiredBossIds: [], chestEnabled: false, chests: {}, requests: {}, settled: {} };
 }
 export interface ActionOutcome { xpEarned: number; leveledUp: boolean; multiplier: number }
-export async function runGame(uid: string, input?: Action, now = new Date(), outcome?: ActionOutcome) {
+export interface VerifiedPhotoProof { itemType: "habit" | "quest"; itemId: number; date: string }
+export async function runGame(uid: string, input?: Action, now = new Date(), outcome?: ActionOutcome, verifiedPhoto?: VerifiedPhotoProof) {
+  const proofMatches = (itemType: VerifiedPhotoProof["itemType"], itemId: number, date: string) =>
+    verifiedPhoto?.itemType === itemType && verifiedPhoto.itemId === itemId && verifiedPhoto.date === date;
   return db.transaction(async tx => {
     // All web and legacy mobile mutations share this account lock, including
     // balance updates and history writes. Different accounts remain independent.
@@ -428,6 +431,21 @@ export async function runGame(uid: string, input?: Action, now = new Date(), out
         if (replay.fingerprint !== fingerprint) fail("A request ID cannot be reused for a different action.");
         game.message = replay.message; game.effect = "none";
       } else {
+        if (action.action === "progressHabit") {
+          const h = own(habits, action.id), meta = j.habits[h.id];
+          const target = configOn(meta, today)?.target ?? 1;
+          const value = Math.min(action.value ?? target, target);
+          const day = action.date ?? today;
+          if (h.requiresPhotoProof && value >= target && !proofMatches("habit", h.id, day)) {
+            fail("Photo proof is required to complete this habit.", 409);
+          }
+        }
+        if (action.action === "completeQuest" && (action.completed ?? true)) {
+          const q = own(quests, action.id);
+          if (q.requiresPhotoProof && !proofMatches("quest", q.id, today)) {
+            fail("Photo proof is required to complete this quest.", 409);
+          }
+        }
         await game.action(action); await game.bosses();
         j.requests[action.requestId] = { fingerprint, message: game.message };
       }

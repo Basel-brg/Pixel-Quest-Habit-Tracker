@@ -24,7 +24,7 @@ export default function JournalPage() {
   }, [snap, inc, theme]);
   return <Gate>{(s) => { const w = which === 'current' ? s.currentWeek : s.previousWeek; return <>
     <PageHead eyebrow="Weekly report" title="Journal" sub="A private look back. Nothing here is shared unless you download the card."/>
-    <Panel><SectionHead eyebrow={`${fmtDate(w.start)} to ${fmtDate(w.end)}`} title={which === 'current' ? 'This week' : 'Last week'} action={<div className="flex gap-2">{(['current', 'previous'] as const).map((x) => <button key={x} data-testid={`tab-week-${x}`} aria-pressed={which === x} onClick={() => setWhich(x)} className={cx('border px-3 py-2 text-xs font-bold capitalize', which === x ? 'border-[color:var(--pq-gold)] text-[color:var(--pq-gold)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{x}</button>)}</div>}/><Week w={w}/></Panel>
+    <Panel><SectionHead eyebrow={`${fmtDate(w.start)}\u00a0to\u00a0${fmtDate(w.end)}`} title={which === 'current' ? 'This week' : 'Last week'}/><div className="mb-4 flex justify-end gap-2">{(['current', 'previous'] as const).map((x) => <button key={x} data-testid={`tab-week-${x}`} aria-pressed={which === x} onClick={() => setWhich(x)} className={cx('border px-3 py-2 text-xs font-bold capitalize', which === x ? 'border-[color:var(--pq-gold)] text-[color:var(--pq-gold)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{x}</button>)}</div><Week w={w}/></Panel>
     <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
       <Panel><SectionHead eyebrow="CHARACTER" title="Skills"/><SkillRadar skills={s.skills}/></Panel>
       <Panel><SectionHead eyebrow="PRIVATE PIXEL PLAYER CARD" title="Share card"/>

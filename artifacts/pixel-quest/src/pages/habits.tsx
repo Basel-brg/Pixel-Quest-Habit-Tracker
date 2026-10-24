@@ -8,8 +8,8 @@ import { useReminders } from '@/lib/reminders';
 import { useOfflineDrafts } from '@/lib/offline-drafts';
 import { OfflineDraftList } from '@/components/offline-draft-list';
 
-interface Draft { id?: number; title: string; category: string; frequency: RpgActionInputFrequency; days: number[]; mandatory: boolean; target: number; unit: string; stat: RpgActionInputStat; archived: boolean }
-const blank: Draft = { title: '', category: 'Wellbeing', frequency: 'daily', days: [1, 2, 3, 4, 5], mandatory: false, target: 1, unit: 'time', stat: 'STR', archived: false };
+interface Draft { id?: number; title: string; category: string; frequency: RpgActionInputFrequency; days: number[]; mandatory: boolean; target: number; unit: string; stat: RpgActionInputStat; archived: boolean; requiresPhotoProof: boolean }
+const blank: Draft = { title: '', category: 'Wellbeing', frequency: 'daily', days: [1, 2, 3, 4, 5], mandatory: false, target: 1, unit: 'time', stat: 'STR', archived: false, requiresPhotoProof: false };
 const dayColor: Record<string, string> = { complete: 'var(--pq-cyan)', partial: 'var(--pq-gold)', missed: 'var(--pq-danger)', off: 'var(--pq-line2)', protected: 'var(--pq-purple)', upcoming: 'var(--pq-line)' };
 
 function Reminder({ habit }: { habit: RpgHabit }) {
@@ -26,8 +26,8 @@ export default function HabitsPage() {
   const offline = useOfflineDrafts();
   const [draft, setDraft] = useState<Draft | null>(null); const [archivedView, setArchivedView] = useState(false); const [err, setErr] = useState('');
   const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
-  const open = (h?: RpgHabit) => { setErr(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived } : blank); };
-  const payload = (d: Draft) => ({ action: 'saveHabit' as const, id: d.id, title: d.title.trim(), category: d.category.trim(), frequency: d.frequency, days: d.frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : d.days, mandatory: d.mandatory, target: Math.max(1, Number(d.target) || 1), unit: d.unit.trim() || 'time', stat: d.stat, archived: d.archived });
+  const open = (h?: RpgHabit) => { setErr(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived, requiresPhotoProof: h.requiresPhotoProof } : blank); };
+  const payload = (d: Draft) => ({ action: 'saveHabit' as const, id: d.id, title: d.title.trim(), category: d.category.trim(), frequency: d.frequency, days: d.frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : d.days, mandatory: d.mandatory, target: Math.max(1, Number(d.target) || 1), unit: d.unit.trim() || 'time', stat: d.stat, archived: d.archived, requiresPhotoProof: d.requiresPhotoProof });
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
     if (draft.frequency === 'weekly' && !draft.days.length) { setErr('Pick at least one day.'); return; }
@@ -62,15 +62,20 @@ export default function HabitsPage() {
           unit: input.unit ?? 'time',
           stat: input.stat ?? 'STR',
           archived: false,
+          requiresPhotoProof: input.requiresPhotoProof ?? false,
         });
       }}/>
       <Panel><SectionHead eyebrow="ROUTINES" title={archivedView ? 'Archived' : 'Habit roster'} action={<Btn testId="button-toggle-archived" variant="quiet" className="!px-3 !py-2 text-xs" onClick={() => setArchivedView((v) => !v)}><Archive size={14}/>{archivedView ? 'Show active' : 'Archived'}</Btn>}/>
         {list.length ? <div className="grid gap-3 lg:grid-cols-2">{list.map((h) => <article key={h.id} data-testid={`card-habit-${h.id}`} className="border border-[color:var(--pq-line2)] bg-[color:var(--pq-panel2)] p-4">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate text-sm font-bold">{h.title}</h3>
             <p className="mt-1 text-[11px] text-[color:var(--pq-mute)]">{h.category} · {h.stat} · {h.target} {h.unit} · {h.frequency === 'daily' ? 'daily' : h.days.map((d) => weekDays[d]).join(' ')}</p>
-            <p className="mt-1 flex gap-2 font-mono text-[9px] uppercase"><span className={h.mandatory ? 'text-[color:var(--pq-danger)]' : 'text-[color:var(--pq-mute)]'}>{h.mandatory ? 'Mandatory' : 'Optional'}</span><span className="text-[color:var(--pq-gold)]">streak {h.streak}</span><span className="text-[color:var(--pq-mute)]">best {h.bestStreak}</span></p></div>
+             <div className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[9px] uppercase">
+               <span className={cx('whitespace-nowrap border px-1.5 py-1', h.mandatory ? 'border-[color:var(--pq-danger)]/40 text-[color:var(--pq-danger)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{h.mandatory ? 'Mandatory' : 'Optional'}</span>
+               <span className="whitespace-nowrap border border-[color:var(--pq-gold)]/30 px-1.5 py-1 text-[color:var(--pq-gold)]">Streak {h.streak}</span>
+               <span className="whitespace-nowrap border border-[color:var(--pq-line)] px-1.5 py-1 text-[color:var(--pq-mute)]">Best {h.bestStreak}</span>
+             </div></div>
             <div className="flex shrink-0 gap-1"><button data-testid={`button-edit-habit-${h.id}`} aria-label={`Edit ${h.title}`} onClick={() => open(h)} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><Pencil size={14}/></button>
-              <button data-testid={`button-archive-habit-${h.id}`} aria-label={h.archived ? 'Restore' : 'Archive'} disabled={isPending('saveHabit:' + h.id)} onClick={() => void run({ ...payload({ id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: !h.archived }) })} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-cyan)] disabled:opacity-40"><Archive size={14}/></button>
+              <button data-testid={`button-archive-habit-${h.id}`} aria-label={h.archived ? 'Restore' : 'Archive'} disabled={isPending('saveHabit:' + h.id)} onClick={() => void run({ ...payload({ id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: !h.archived, requiresPhotoProof: h.requiresPhotoProof }) })} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-cyan)] disabled:opacity-40"><Archive size={14}/></button>
                <button data-testid={`button-delete-habit-${h.id}`} aria-label={`Delete ${h.title}`} disabled={isPending('deleteHabit:' + h.id)} onClick={() => { if (window.confirm(`Delete "${h.title}" from your roster? Earned history stays in your reports.`)) void run({ action: 'deleteHabit', id: h.id }); }} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-danger)] disabled:opacity-40"><Trash2 size={14}/></button></div></div>
           {!h.archived && <div className="mt-4"><HabitProgress habit={h}/></div>}
           <div className="mt-4" role="img" aria-label={`Last ${Math.min(30, h.history.length)} days: ${h.history.filter((d) => d.status === 'complete').length} complete, ${h.history.filter((d) => d.status === 'missed').length} missed`}>
@@ -89,6 +94,7 @@ export default function HabitsPage() {
           <Field label="Schedule"><select data-testid="select-habit-frequency" value={draft.frequency} onChange={(e) => upd('frequency', e.target.value as RpgActionInputFrequency)} className="field"><option value="daily">Every day</option><option value="weekly">Custom days</option></select></Field>
           {draft.frequency === 'weekly' && <fieldset><legend className="mb-2 text-xs font-bold text-[color:var(--pq-ink2)]">Repeat on</legend><div className="flex flex-wrap gap-2">{weekDays.map((d, i) => <button type="button" key={d} data-testid={`button-day-${i}`} aria-pressed={draft.days.includes(i)} onClick={() => upd('days', draft.days.includes(i) ? draft.days.filter((x) => x !== i) : [...draft.days, i].sort())} className={cx('border px-3 py-2 text-xs font-bold', draft.days.includes(i) ? 'border-[color:var(--pq-cyan)] bg-[color:var(--pq-line2)] text-[color:var(--pq-cyan)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{d}</button>)}</div></fieldset>}
           <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-mandatory" checked={draft.mandatory} onChange={(e) => upd('mandatory', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-gold)]"/><span>Mandatory<span className="block text-[11px] text-[color:var(--pq-mute)]">Each missed scheduled day costs 10 HP (a shield absorbs one).</span></span></label>
+           <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">Must upload a photo to verify completion and claim rewards.</span></span></label>
           {err && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{err}</p>}
           <div className="flex justify-end gap-2 pt-2"><Btn testId="button-cancel-habit" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-habit" type="submit" disabled={isPending('saveHabit:editor')}>{isPending('saveHabit:editor') ? 'Saving...' : 'Save habit'}</Btn></div></form></Modal>}
     </>;

@@ -18,4 +18,5 @@ export interface HabitInput {
      * @items.maximum 6
      */
   days: number[];
+  requiresPhotoProof?: boolean;
 }
