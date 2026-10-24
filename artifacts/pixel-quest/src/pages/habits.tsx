@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Archive, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useQuestAssistant } from '@workspace/api-client-react';
 import type { QuestAssistantResult, RpgHabit, RpgActionInputFrequency, RpgActionInputStat } from '@workspace/api-client-react';
@@ -32,11 +32,13 @@ export default function HabitsPage() {
   const { run, isPending, snap } = useRpg();
   const offline = useOfflineDrafts();
   const assistant = useQuestAssistant();
+  const aiSession = useRef(0);
+  const draftRef = useRef<Draft | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null); const [archivedView, setArchivedView] = useState(false); const [err, setErr] = useState('');
   const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiError, setAiError] = useState('');
-  const open = (h?: RpgHabit) => { setErr(''); setAiPrompt(''); setAiError(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived, requiresPhotoProof: h.requiresPhotoProof } : blank); };
+  const open = (h?: RpgHabit) => { aiSession.current += 1; setErr(''); setAiPrompt(''); setAiError(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived, requiresPhotoProof: h.requiresPhotoProof } : blank); };
   const payload = (d: Draft) => ({ action: 'saveHabit' as const, id: d.id, title: d.title.trim(), category: d.category.trim(), frequency: d.frequency, days: d.frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : d.days, mandatory: d.mandatory, target: Math.max(1, Number(d.target) || 1), unit: d.unit.trim() || 'time', stat: d.stat, archived: d.archived, requiresPhotoProof: d.requiresPhotoProof });
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
@@ -52,6 +54,8 @@ export default function HabitsPage() {
     else setErr(offline.storageError || 'Could not save this habit draft on the device.');
   };
   const editing = draft?.id ? snap?.habits.find((h) => h.id === draft.id) : undefined;
+  draftRef.current = draft;
+  const close = () => { aiSession.current += 1; setDraft(null); };
   const upd = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const applySuggestion = (suggestion: QuestAssistantResult) => setDraft((current) => current ? {
     ...current,
@@ -68,10 +72,11 @@ export default function HabitsPage() {
     if (!prompt) return;
     if (offline.online === false) { setAiError('AI suggestions need an internet connection. You can still save a manual draft offline.'); return; }
     setAiError('');
-    try { applySuggestion(await assistant.mutateAsync({ data: { itemType: 'habit', prompt } })); }
-    catch (error) { setAiError(error instanceof Error ? error.message : 'Could not analyze that description. Try again.'); }
+    const id = ++aiSession.current; const before = JSON.stringify(draftRef.current);
+    try { const r = await assistant.mutateAsync({ data: { itemType: 'habit', prompt } }); if (id !== aiSession.current || !draftRef.current) return; if (JSON.stringify(draftRef.current) !== before) { setAiError('You edited the form while the assistant was running, so your changes were kept.'); return; } applySuggestion(r); }
+    catch (error) { if (id === aiSession.current) setAiError(error instanceof Error ? error.message : 'Could not analyze that description. Try again.'); }
   };
-  const applyPreset = (preset: (typeof habitPresets)[number]) => setDraft((current) => current ? {
+  const applyPreset = (preset: (typeof habitPresets)[number]) => (aiSession.current += 1, setDraft((current) => current ? {
     ...current,
     title: preset.title,
     category: preset.category,
@@ -80,7 +85,7 @@ export default function HabitsPage() {
     unit: preset.unit,
     frequency: 'daily',
     days: [1, 2, 3, 4, 5],
-  } : current);
+  } : current));
   return <Gate>{(s) => {
     const list = s.habits.filter((h) => h.archived === archivedView);
     return <>
@@ -123,7 +128,7 @@ export default function HabitsPage() {
             <p className="mt-2 text-[10px] text-[color:var(--pq-mute)]">Cyan complete, gold partial, red missed, purple protected, dark off day. Past days are read-only.</p></div>
           {!h.archived && <Reminder habit={h}/>}</article>)}</div>
           : <Empty title={archivedView ? 'NO ARCHIVED HABITS' : 'NO ROUTINES YET'} detail={archivedView ? 'Archived habits keep their history here.' : 'Start with one small habit you would like to repeat.'} action={!archivedView && <Btn testId="button-empty-add-habit" onClick={() => open()}><Plus size={15}/> Add a habit</Btn>}/>}</Panel>
-       {draft && <Modal title={draft.id ? 'Edit habit' : 'Create a habit'} onClose={() => setDraft(null)} contentClassName="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
+       {draft && <Modal title={draft.id ? 'Edit habit' : 'Create a habit'} onClose={close} contentClassName="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
          <form onSubmit={(e) => void save(e)} className="flex min-h-0 flex-1 flex-col">
            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 pr-1">
              <div className="space-y-3 border border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] p-3">
@@ -147,7 +152,7 @@ export default function HabitsPage() {
              <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">يتطلب إثباتاً بالصورة للحصول على المكافأة</span></span></label>
              {err && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{err}</p>}
            </div>
-           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5 pb-24 md:pb-5"><Btn testId="button-cancel-habit" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-habit" type="submit" disabled={isPending('saveHabit:editor')}>{isPending('saveHabit:editor') ? 'Saving...' : 'Save habit'}</Btn></div>
+           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5 pb-24 md:-mx-7 md:-mb-7 md:pb-5"><Btn testId="button-cancel-habit" variant="quiet" onClick={close}>Cancel / إلغاء</Btn><Btn testId="button-save-habit" type="submit" disabled={isPending('saveHabit:editor')}>{isPending('saveHabit:editor') ? 'Saving...' : 'Save / حفظ'}</Btn></div>
          </form></Modal>}
     </>;
   }}</Gate>;

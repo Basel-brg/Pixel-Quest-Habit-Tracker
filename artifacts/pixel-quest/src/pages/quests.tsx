@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Check, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useQuestAssistant } from '@workspace/api-client-react';
 import type { QuestAssistantResult, RpgQuest, RpgActionInputDifficulty, RpgActionInputStat, RpgActionInputType } from '@workspace/api-client-react';
@@ -23,13 +23,15 @@ export default function QuestsPage() {
   const { run, isPending, snap } = useRpg();
   const offline = useOfflineDrafts();
   const assistant = useQuestAssistant();
+  const aiSession = useRef(0);
+  const draftRef = useRef<Draft | null>(null);
   const [status, setStatus] = useState<'active' | 'completed' | 'all'>('active'); const [diff, setDiff] = useState('all'); const [type, setType] = useState('all'); const [tag, setTag] = useState('all');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiError, setAiError] = useState('');
-  const open = (q?: RpgQuest) => { setOfflineDraftId(null); setDraftError(''); setAiPrompt(''); setAiError(''); setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, stat: q.stat, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type, requiresPhotoProof: q.requiresPhotoProof } : blank); };
+  const open = (q?: RpgQuest) => { aiSession.current += 1; setOfflineDraftId(null); setDraftError(''); setAiPrompt(''); setAiError(''); setDraft(q ? { id: q.id, title: q.title, category: q.category, difficulty: q.difficulty, stat: q.stat, priority: q.priority, dueDate: q.dueDate?.slice(0, 10) ?? '', tags: q.tags.join(', '), type: q.type, requiresPhotoProof: q.requiresPhotoProof } : blank); };
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
     const tags = [...new Set(draft.tags.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 10);
@@ -44,6 +46,8 @@ export default function QuestsPage() {
     if (saved) { setDraft(null); setOfflineDraftId(null); setDraftError(''); }
     else setDraftError(offline.storageError || 'Could not save this quest draft on the device.');
   };
+  draftRef.current = draft;
+  const close = () => { aiSession.current += 1; setDraft(null); };
   const upd = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const applySuggestion = (suggestion: QuestAssistantResult) => setDraft((current) => current ? {
     ...current,
@@ -59,17 +63,18 @@ export default function QuestsPage() {
     if (!prompt) return;
     if (offline.online === false) { setAiError('AI suggestions need an internet connection. You can still save a manual draft offline.'); return; }
     setAiError('');
-    try { applySuggestion(await assistant.mutateAsync({ data: { itemType: 'quest', prompt } })); }
-    catch (error) { setAiError(error instanceof Error ? error.message : 'Could not analyze that description. Try again.'); }
+    const id = ++aiSession.current; const before = JSON.stringify(draftRef.current);
+    try { const r = await assistant.mutateAsync({ data: { itemType: 'quest', prompt } }); if (id !== aiSession.current || !draftRef.current) return; if (JSON.stringify(draftRef.current) !== before) { setAiError('You edited the form while the assistant was running, so your changes were kept.'); return; } applySuggestion(r); }
+    catch (error) { if (id === aiSession.current) setAiError(error instanceof Error ? error.message : 'Could not analyze that description. Try again.'); }
   };
-  const applyPreset = (preset: (typeof questPresets)[number]) => setDraft((current) => current ? {
+  const applyPreset = (preset: (typeof questPresets)[number]) => (aiSession.current += 1, setDraft((current) => current ? {
     ...current,
     title: preset.title,
     category: preset.category,
     difficulty: preset.difficulty,
     stat: preset.stat,
     dueDate: snap?.today ?? '',
-  } : current);
+  } : current));
   const chip = (on: boolean) => cx('border px-3 py-2 text-xs font-bold capitalize', on ? 'border-[color:var(--pq-gold)] bg-[color:var(--pq-line2)] text-[color:var(--pq-gold)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]');
   return <Gate>{(s) => {
     const allTags = [...new Set(s.quests.flatMap((q) => q.tags))].sort();
@@ -110,7 +115,7 @@ export default function QuestsPage() {
           <button data-testid={`button-edit-task-${q.id}`} aria-label={`Edit ${q.title}`} onClick={() => open(q)} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><Pencil size={14}/></button>
           <button data-testid={`button-delete-task-${q.id}`} aria-label={`Delete ${q.title}`} disabled={isPending(`deleteQuest:${q.id}`)} onClick={() => { if (window.confirm(`Delete "${q.title}"?`)) void run({ action: 'deleteQuest', id: q.id }); }} className="grid h-8 w-8 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-danger)] disabled:opacity-40"><Trash2 size={14}/></button></div>; })}</div>
           : <div className="pt-5"><Empty title="NO QUESTS HERE" detail="Nothing matches these filters yet." action={<Btn testId="button-empty-add-quest" onClick={() => open()}><Plus size={15}/> Add a quest</Btn>}/></div>}</Panel>
-       {draft && <Modal title={draft.id ? 'Edit quest' : 'New quest'} onClose={() => setDraft(null)} contentClassName="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
+       {draft && <Modal title={draft.id ? 'Edit quest' : 'New quest'} onClose={close} contentClassName="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
          <form onSubmit={(e) => void save(e)} className="flex min-h-0 flex-1 flex-col">
            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 pr-1">
              <div className="space-y-3 border border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] p-3">
@@ -133,7 +138,7 @@ export default function QuestsPage() {
              <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-quest-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">يتطلب إثباتاً بالصورة للحصول على المكافأة</span></span></label>
              {draftError && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{draftError}</p>}
            </div>
-           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5 pb-24 md:pb-5"><Btn testId="button-cancel-quest" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-quest" type="submit" disabled={isPending('saveQuest:editor')}>{isPending('saveQuest:editor') ? 'Saving...' : 'Save quest'}</Btn></div>
+           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5 pb-24 md:-mx-7 md:-mb-7 md:pb-5"><Btn testId="button-cancel-quest" variant="quiet" onClick={close}>Cancel / إلغاء</Btn><Btn testId="button-save-quest" type="submit" disabled={isPending('saveQuest:editor')}>{isPending('saveQuest:editor') ? 'Saving...' : 'Save / حفظ'}</Btn></div>
          </form></Modal>}
     </>;
   }}</Gate>;

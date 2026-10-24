@@ -6,6 +6,7 @@ import { db, pool, pixelQuestUsersTable, playerProfileTable, habitsTable, habitC
 import { runGame, GameError, type Action } from "./rpg-game";
 import { localDay, dayInstant, levelForXp, streaks, type HabitMeta } from "./rpg-rules";
 import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "./photo-verification";
+import { consumeAiRequestLimit } from "./ai-request-limiter";
 
 const accounts: string[] = [];
 const base = new Date("2026-10-20T10:00:00Z");
@@ -26,6 +27,15 @@ const reject = (p: Promise<unknown>, status = 409) => assert.rejects(p, (e: unkn
 after(async () => {
   for (const uid of accounts) await db.delete(pixelQuestUsersTable).where(eq(pixelQuestUsersTable.id, uid));
   await pool.end();
+});
+
+test("AI throttling reads the real Drizzle database clock and preserves account/endpoint limits", async () => {
+  const uid = await account();
+  const otherUid = await account();
+  for (let i = 0; i < 5; i++) assert.equal(await consumeAiRequestLimit(uid, "assistant"), true);
+  assert.equal(await consumeAiRequestLimit(uid, "assistant"), false);
+  assert.equal(await consumeAiRequestLimit(uid, "photo"), true);
+  assert.equal(await consumeAiRequestLimit(otherUid, "assistant"), true);
 });
 
 test("local-day boundaries, DST midnight lengths and level thresholds", () => {

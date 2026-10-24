@@ -10,7 +10,7 @@ import {
   useUpdateTask,
 } from '@workspace/api-client-react';
 import type { QuestAssistantResult, QuestTaskDifficulty } from '@workspace/api-client-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
@@ -56,6 +56,8 @@ export default function QuestsScreen() {
   const tasksQuery = useGetTasks({ status: 'all' });
   const updateTask = useUpdateTask();
   const assistant = useQuestAssistant();
+  const aiSession = useRef(0);
+  const titleRef = useRef('');
   const deleteTask = useDeleteTask();
   const completeTask = useCompleteTask();
   const undoTask = useUndoTaskCompletion();
@@ -85,6 +87,7 @@ export default function QuestsScreen() {
   });
 
   const clearForm = () => {
+    aiSession.current += 1;
     setShowForm(false);
     setEditingId(null);
     setOfflineDraftId(null);
@@ -120,6 +123,7 @@ export default function QuestsScreen() {
     setRequiresPhotoProof(task.requiresPhotoProof);
     setAiPrompt('');
     setAiError('');
+    aiSession.current += 1;
     setShowForm(true);
     setConfirmDeleteId(null);
   };
@@ -168,6 +172,7 @@ export default function QuestsScreen() {
     setRequiresPhotoProof(input.requiresPhotoProof ?? false);
     setAiPrompt('');
     setAiError('');
+    aiSession.current += 1;
     setShowForm(true);
     setDraftError('');
   };
@@ -191,14 +196,22 @@ export default function QuestsScreen() {
       return;
     }
     setAiError('');
+    const session = ++aiSession.current;
+    const titleAtRequest = title;
     try {
-      applySuggestion(await assistant.mutateAsync({ data: { itemType: 'quest', prompt } }));
+      const suggestion = await assistant.mutateAsync({ data: { itemType: 'quest', prompt } });
+      if (session !== aiSession.current) return;
+      if (titleRef.current !== titleAtRequest) { setAiError('تم تعديل النموذج أثناء التحليل، لذلك لم يتم استبدال تعديلاتك.'); return; }
+      applySuggestion(suggestion);
     } catch (error) {
+      if (session !== aiSession.current) return;
       setAiError(error instanceof Error ? error.message : 'تعذر تحليل الوصف. حاول مرة أخرى.');
     }
   };
 
+  titleRef.current = title;
   const applyPreset = (preset: (typeof questPresets)[number]) => {
+    aiSession.current += 1;
     setTitle(preset.title);
     setCategory(preset.category);
     setDifficulty(preset.difficulty);

@@ -20,8 +20,8 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   return <label className="block"><span className="mb-1.5 block text-xs font-bold text-[color:var(--pq-ink2)]">{label}</span>{children}{hint && <span className="mt-1 block text-[11px] text-[color:var(--pq-mute)]">{hint}</span>}</label>;
 }
 export function Modal({ title, children, onClose, wide, contentClassName }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; contentClassName?: string }) {
-  return <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[color:var(--pq-bg)]/80 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <div role="dialog" aria-modal="true" aria-label={title} className={cx('pixel-border my-auto w-full bg-[color:var(--pq-panel)] p-5 md:p-7', wide ? 'max-w-2xl' : 'max-w-lg', contentClassName)}>
+  return <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain bg-[color:var(--pq-bg)]/80 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div role="dialog" aria-modal="true" aria-label={title} className={cx('pixel-border relative my-auto w-full bg-[color:var(--pq-panel)] p-5 md:p-7', wide ? 'max-w-2xl' : 'max-w-lg', contentClassName)}>
       <div className="mb-5 flex items-start justify-between gap-3"><h2 className="pixel-title text-[11px] text-[color:var(--pq-ink)]">{title}</h2><button type="button" data-testid="button-close-modal" aria-label="Close" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center border border-[color:var(--pq-line)] text-[color:var(--pq-mute2)] hover:text-[color:var(--pq-gold)]"><X size={16}/></button></div><div className="mb-4 empty:hidden"><ServerError/></div>{children}</div></div>;
 }
 export function Empty({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {

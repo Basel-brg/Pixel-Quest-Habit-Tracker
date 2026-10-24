@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Modal, StyleSheet } from 'react-native';
+import { Modal, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { Pressable, Text, View } from '@/components/Themed';
 import { useColors } from '@/hooks/useColors';
@@ -37,7 +38,7 @@ export function EntryFormModal({
           styles.screen,
           {
             backgroundColor: colors.background,
-            paddingTop: insets.top,
+            paddingTop: Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top,
           },
         ]}
       >
@@ -65,18 +66,20 @@ export function EntryFormModal({
         >
           {children}
         </KeyboardAwareScrollViewCompat>
+        <KeyboardStickyView enabled={Platform.OS !== 'web'}>
         <View
           style={[
             styles.footer,
             {
               backgroundColor: colors.background,
               borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 12),
+              paddingBottom: Math.max(insets.bottom, 96),
             },
           ]}
         >
           {actions}
         </View>
+        </KeyboardStickyView>
       </View>
     </Modal>
   );

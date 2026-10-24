@@ -20,14 +20,16 @@ export async function consumeAiRequestLimit(
     await tx.execute(
       sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${userId}:${endpoint}`}, 0))`,
     );
+    // Raw Drizzle results do not guarantee pg's Date decoder. Ask PostgreSQL
+    // for epoch milliseconds instead, retaining the shared database clock.
     const clock = await tx.execute(
-      sql<{ now: Date }>`SELECT clock_timestamp() AS now`,
+      sql`SELECT (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::double precision AS now_ms`,
     );
-    const databaseTimestamp: unknown = clock.rows[0]?.["now"];
-    if (!(databaseTimestamp instanceof Date)) {
+    const databaseTimestamp: unknown = clock.rows[0]?.["now_ms"];
+    if (typeof databaseTimestamp !== "number" || !Number.isFinite(databaseTimestamp)) {
       throw new Error("Could not read the database clock.");
     }
-    const now = databaseTimestamp.getTime();
+    const now = databaseTimestamp;
 
     const [existing] = await tx
       .select({

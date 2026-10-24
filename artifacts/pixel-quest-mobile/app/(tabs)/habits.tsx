@@ -9,7 +9,7 @@ import {
   useUpdateHabit,
 } from '@workspace/api-client-react';
 import type { Habit, QuestAssistantResult, RpgActionInputStat } from '@workspace/api-client-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
@@ -70,12 +70,15 @@ export default function HabitsScreen() {
   const habitsQuery = useGetHabits({ archived: showArchived });
   const updateHabit = useUpdateHabit();
   const assistant = useQuestAssistant();
+  const aiSession = useRef(0);
+  const titleRef = useRef('');
   const completeHabit = useCompleteHabit();
   const undoHabit = useUndoHabitCompletion();
   const today = localDateKey();
   const habits = habitsQuery.data ?? [];
 
   const clearForm = () => {
+    aiSession.current += 1;
     setShowForm(false);
     setEditingId(null);
     setOfflineDraftId(null);
@@ -113,6 +116,7 @@ export default function HabitsScreen() {
     setRequiresPhotoProof(habit.requiresPhotoProof);
     setAiPrompt('');
     setAiError('');
+    aiSession.current += 1;
     setShowForm(true);
   };
 
@@ -171,6 +175,7 @@ export default function HabitsScreen() {
     setRequiresPhotoProof(input.requiresPhotoProof ?? false);
     setAiPrompt('');
     setAiError('');
+    aiSession.current += 1;
     setShowForm(true);
     setDraftError('');
   };
@@ -193,14 +198,22 @@ export default function HabitsScreen() {
       return;
     }
     setAiError('');
+    const session = ++aiSession.current;
+    const titleAtRequest = title;
     try {
-      applySuggestion(await assistant.mutateAsync({ data: { itemType: 'habit', prompt } }));
+      const suggestion = await assistant.mutateAsync({ data: { itemType: 'habit', prompt } });
+      if (session !== aiSession.current) return;
+      if (titleRef.current !== titleAtRequest) { setAiError('تم تعديل النموذج أثناء التحليل، لذلك لم يتم استبدال تعديلاتك.'); return; }
+      applySuggestion(suggestion);
     } catch (error) {
+      if (session !== aiSession.current) return;
       setAiError(error instanceof Error ? error.message : 'تعذر تحليل الوصف. حاول مرة أخرى.');
     }
   };
 
+  titleRef.current = title;
   const applyPreset = (preset: (typeof habitPresets)[number]) => {
+    aiSession.current += 1;
     setTitle(preset.title);
     setCategory(preset.category);
     setStat(preset.stat);
