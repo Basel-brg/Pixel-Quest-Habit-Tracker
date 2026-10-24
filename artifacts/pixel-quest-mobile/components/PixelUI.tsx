@@ -103,11 +103,13 @@ export function ScreenTitle({
   title,
   subtitle,
   trailing,
+  titleNumberOfLines,
 }: {
   eyebrow?: string;
   title: string;
   subtitle?: string;
   trailing?: ReactNode;
+  titleNumberOfLines?: number;
 }) {
   const colors = useColors();
   const { tokens } = useTheme();
@@ -117,7 +119,18 @@ export function ScreenTitle({
         {eyebrow ? (
           <Text style={[styles.eyebrow, tokens.eyebrow, { color: colors.cyan }]}>{eyebrow}</Text>
         ) : null}
-        <Text style={[styles.title, tokens.title, { color: colors.foreground }]}>{title}</Text>
+        <Text
+          numberOfLines={titleNumberOfLines}
+          ellipsizeMode={titleNumberOfLines ? 'tail' : undefined}
+          style={[
+            styles.title,
+            tokens.title,
+            { color: colors.foreground },
+            titleNumberOfLines ? styles.singleLineTitle : null,
+          ]}
+        >
+          {title}
+        </Text>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             {subtitle}
@@ -334,9 +347,10 @@ const styles = StyleSheet.create({
   pageContent: { paddingHorizontal: 18, gap: 14 },
   panel: { borderWidth: 2, borderRadius: 8, padding: 16, gap: 12 },
   screenTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
-  titleCopy: { flex: 1, gap: 7 },
+  titleCopy: { flex: 1, minWidth: 0, gap: 7 },
   eyebrow: { fontFamily: 'DMSans_700Bold', fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' },
   title: { fontFamily: 'PressStart2P_400Regular', fontSize: 18, lineHeight: 29 },
+  singleLineTitle: { flexShrink: 1, minWidth: 0, maxWidth: '100%' },
   subtitle: { fontFamily: 'DMSans_400Regular', fontSize: 14, lineHeight: 20 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   sectionTitle: { fontFamily: 'PressStart2P_400Regular', fontSize: 11, lineHeight: 20 },

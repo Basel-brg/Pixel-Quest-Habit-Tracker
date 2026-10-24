@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetAchievements, useGetHabits, useGetPixelQuestDashboard, useGetTasks, useCompleteHabit, useUndoHabitCompletion, useCompleteTask } from '@workspace/api-client-react';
+import { useGetAchievements, useGetHabits, useGetPixelQuestDashboard, useGetPixelQuestProfile, useGetTasks, useCompleteHabit, useUndoHabitCompletion, useCompleteTask } from '@workspace/api-client-react';
 import { useState } from 'react';
 import { useColors } from '@/hooks/useColors';
 import { dateKey, invalidatePixelQuest, isHabitScheduledToday, localDateKey } from '@/lib/pixel-quest';
@@ -23,6 +23,7 @@ export default function TodayScreen() {
   const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const queryClient = useQueryClient();
   const dashboardQuery = useGetPixelQuestDashboard();
+  const playerProfileQuery = useGetPixelQuestProfile();
   const habitsQuery = useGetHabits();
   const tasksQuery = useGetTasks({ status: 'active' });
   const achievementsQuery = useGetAchievements();
@@ -30,6 +31,14 @@ export default function TodayScreen() {
   const undoHabit = useUndoHabitCompletion();
   const completeTask = useCompleteTask();
   const today = localDateKey();
+  const dashboard = dashboardQuery.data;
+  const profile = dashboard?.profile;
+  const playerName = playerProfileQuery.data?.username?.trim() || 'HERO';
+  const dateLabel = new Intl.DateTimeFormat('en', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
 
   const reload = () => {
     void Promise.all([
@@ -65,7 +74,13 @@ export default function TodayScreen() {
   if (queryError) {
     return (
       <PixelPage>
-        <ScreenTitle eyebrow="PIXEL QUEST" title="TODAY" subtitle="Your next small win is ready." />
+        <ScreenTitle
+          eyebrow={dateLabel.toUpperCase()}
+          title={playerName}
+          titleNumberOfLines={1}
+          subtitle="Your next small win is ready."
+          trailing={<AvatarQuickSwitch />}
+        />
         <ErrorState
           message={queryError instanceof Error ? queryError.message : 'Could not load your quest data.'}
           retry={reload}
@@ -74,25 +89,17 @@ export default function TodayScreen() {
     );
   }
 
-  const dashboard = dashboardQuery.data;
   const habits = (habitsQuery.data ?? []).filter(
     (habit) => !habit.archived && isHabitScheduledToday(habit.frequency, habit.days),
   );
   const tasks = tasksQuery.data ?? [];
   const achievements = achievementsQuery.data ?? [];
-  const profile = dashboard?.profile;
   const completedToday = habits.filter((habit) =>
     habit.completedDates.some((date) => dateKey(date) === today),
   ).length;
   const progress = profile
     ? Math.round((profile.xpIntoLevel / profile.xpToNextLevel) * 100)
     : 0;
-  const dateLabel = new Intl.DateTimeFormat('en', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
-
   return (
     <PixelPage
       refreshing={dashboardQuery.isRefetching}
@@ -100,7 +107,8 @@ export default function TodayScreen() {
     >
       <ScreenTitle
         eyebrow={dateLabel.toUpperCase()}
-        title="PIXEL QUEST"
+        title={playerName}
+        titleNumberOfLines={1}
         subtitle="One good move at a time."
         trailing={<AvatarQuickSwitch/>}
       />
