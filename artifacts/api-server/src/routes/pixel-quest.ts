@@ -12,6 +12,7 @@ import { runGame, GameError, type Action, type ActionOutcome } from "../lib/rpg-
 import { levelForXp } from "../lib/rpg-rules";
 import { decodeVoiceAudio, parseVoiceAudio, VoiceProcessingError } from "../lib/voice-intake";
 import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "../lib/photo-verification";
+import { consumeAiRequestLimit } from "../lib/ai-request-limiter";
 
 declare global { namespace Express { interface Request { pixelQuestUserId?: string } } }
 const router: IRouter = Router();
@@ -38,8 +39,6 @@ const id = (v: unknown) => {
 const requestId = (req: Request) => req.get("Idempotency-Key") ?? randomUUID();
 const action = (req: Request, input: Omit<Action, "requestId">, outcome?: ActionOutcome) => runGame(uid(req), PerformRpgActionBody.parse({ ...input, requestId: requestId(req) }), new Date(), outcome);
 const find = <T extends { id: number }>(rows: T[], n: number) => rows.find(x => x.id === n) ?? (() => { throw new GameError(404, "Owned record not found."); })();
-const voiceRequests = new Map<string, number[]>();
-const photoRequests = new Map<string, number[]>();
 function consumePhoto(body: { imageBase64: string; mimeType: string }, rawBody: unknown) {
   const encoded = body.imageBase64;
   body.imageBase64 = "";
@@ -70,14 +69,10 @@ router.use("/ai", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 router.post("/pixelquest/voice/parse", async (req, res) => {
-  const now = Date.now();
-  const recent = (voiceRequests.get(uid(req)) ?? []).filter(at => now - at < 60_000);
-  if (recent.length >= 5) {
+  if (!(await consumeAiRequestLimit(uid(req), "voice"))) {
     res.status(429).json({ error: "Too many voice requests. Please wait a minute and try again." });
     return;
   }
-  recent.push(now);
-  voiceRequests.set(uid(req), recent);
   try {
     const parsedBody = ParseVoiceBody.safeParse(req.body);
     if (!parsedBody.success) {
@@ -104,15 +99,10 @@ router.post("/ai/verify-photo", async (req, res) => {
     res.status(400).json({ error: "Choose a valid JPEG, PNG, or WebP photo under 5 MB." });
     return;
   }
-  const now = Date.now();
-  const recent = (photoRequests.get(uid(req)) ?? []).filter(at => now - at < 60_000);
-  if (recent.length >= 5) {
+  if (!(await consumeAiRequestLimit(uid(req), "photo"))) {
     res.status(429).json({ error: "Too many photo checks. Please wait a minute and try again." });
     return;
   }
-  recent.push(now);
-  photoRequests.set(uid(req), recent);
-
   try {
     const body = parsed.data;
     const current = await runGame(uid(req));
