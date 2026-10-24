@@ -752,7 +752,8 @@ components:
         requestId: { type: string, minLength: 8, maxLength: 100 }
         action:
           type: string
-          enum: [saveHabit, deleteHabit, progressHabit, saveQuest, deleteQuest, completeQuest, saveReward, deleteReward, claimReward, buyItem, updateItem, deleteItem, equipItem, consumeItem, settings, drawChest, savings, profile]
+          enum: [saveHabit, deleteHabit, progressHabit, saveQuest, deleteQuest, completeQuest, saveReward, deleteReward, claimReward, buyItem, updateItem, deleteItem, equipItem, consumeItem, settings, drawChest, savings, profile, onboardingDraft, completeOnboarding, skipOnboarding]
+        onboardingDraft: { $ref: "#/components/schemas/OnboardingDraft" }
         id: { type: integer, minimum: 1 }
         itemId: { type: string, maxLength: 100 }
         title: { type: string, minLength: 1, maxLength: 120 }
@@ -788,6 +789,20 @@ components:
         username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
         themeId: { $ref: "#/components/schemas/ThemeId" }
+    OnboardingDraft:
+      type: object
+      required: [step]
+      properties:
+        step: { type: integer, minimum: 1, maximum: 5 }
+        username: { type: string, maxLength: 20 }
+        themeId: { $ref: "#/components/schemas/ThemeId" }
+        heroPath: { type: string, enum: [STR, INT, WIS] }
+        habitTitle: { type: string, maxLength: 120 }
+        habitTarget: { type: number, minimum: 1, maximum: 1000000 }
+        habitUnit: { type: string, maxLength: 30 }
+        requiresPhotoProof: { type: boolean }
+        rewardTitle: { type: string, maxLength: 120 }
+        rewardStreak: { type: integer, minimum: 1, maximum: 3650 }
     VoiceAudioInput:
       type: object
       required: [audioBase64, mimeType]
@@ -1038,8 +1053,11 @@ components:
         achievedAt: { type: string, format: date-time }
     PlayerProfileDetails:
       type: object
-      required: [username, avatarId, selectedTheme, themeUpdatedAt, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones]
+      required: [username, avatarId, selectedTheme, themeUpdatedAt, level, xp, gold, lifetimeTasksVanquished, highestHabitStreak, habitStreaks, avatars, milestones, hasCompletedOnboarding, onboardingDraft, heroPath]
       properties:
+        hasCompletedOnboarding: { type: boolean }
+        onboardingDraft: { $ref: "#/components/schemas/OnboardingDraft" }
+        heroPath: { type: [string, "null"], enum: [STR, INT, WIS, null] }
         username: { type: string }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
         selectedTheme: { $ref: "#/components/schemas/ThemeId" }

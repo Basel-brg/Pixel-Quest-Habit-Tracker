@@ -17,7 +17,8 @@ const atScale = (scale: number) => keys.map(key => [
   center[1] + (vertices[key][1] - center[1]) * scale,
 ] as Point);
 
-export function SkillRadar({ skills }: { skills: RpgSkills }) {
+/** `highlight` marks a chosen hero path axis without changing values. */
+export function SkillRadar({ skills, highlight }: { skills: RpgSkills; highlight?: keyof RpgSkills | null }) {
   const colors = useColors();
   const values = keys.map(key => skills[key]);
   const max = Math.max(10, ...values);
@@ -29,15 +30,16 @@ export function SkillRadar({ skills }: { skills: RpgSkills }) {
 
   return <View testID="chart-skills" accessible accessibilityLabel={`Character skills: strength ${skills.STR}, intelligence ${skills.INT}, wisdom ${skills.WIS}`}>
     <Svg width="100%" height={238} viewBox="0 0 300 250">
+      {highlight ? <Polygon points={polygonPoints([center, vertices[highlight]])} fill="transparent" stroke={colors.gold} strokeWidth={5} strokeOpacity={0.55}/> : null}
       {[1 / 3, 2 / 3, 1].map(scale => <Polygon key={scale} points={polygonPoints(atScale(scale))} fill="transparent" stroke={colors.border} strokeWidth={1.4}/>)}
       {keys.map(key => <Polygon key={`axis-${key}`} points={polygonPoints([center, vertices[key]])} fill="transparent" stroke={colors.border} strokeWidth={1.2}/>)}
       <Polygon points={polygonPoints(skillPoints)} fill={colors.cyan} fillOpacity={0.3} stroke={colors.cyan} strokeWidth={2.5}/>
-      <SvgText x={150} y={19} textAnchor="middle" fill={colors.foreground} fontSize={15} fontWeight="700">STR</SvgText>
-      <SvgText x={35} y={234} textAnchor="middle" fill={colors.foreground} fontSize={15} fontWeight="700">WIS</SvgText>
-      <SvgText x={265} y={234} textAnchor="middle" fill={colors.foreground} fontSize={15} fontWeight="700">INT</SvgText>
+      <SvgText x={150} y={19} textAnchor="middle" fill={highlight === 'STR' ? colors.gold : colors.foreground} fontSize={highlight === 'STR' ? 18 : 15} fontWeight="700">STR</SvgText>
+      <SvgText x={35} y={234} textAnchor="middle" fill={highlight === 'WIS' ? colors.gold : colors.foreground} fontSize={highlight === 'WIS' ? 18 : 15} fontWeight="700">WIS</SvgText>
+      <SvgText x={265} y={234} textAnchor="middle" fill={highlight === 'INT' ? colors.gold : colors.foreground} fontSize={highlight === 'INT' ? 18 : 15} fontWeight="700">INT</SvgText>
     </Svg>
     <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-      {keys.map(key => <View key={key} testID={`text-skill-${key}`} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 68, paddingHorizontal: 4, paddingVertical: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.secondary }}>
+      {keys.map(key => <View key={key} testID={`text-skill-${key}`} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 68, paddingHorizontal: 4, paddingVertical: 8, borderWidth: highlight === key ? 2 : 1, borderColor: highlight === key ? colors.gold : colors.border, backgroundColor: colors.secondary }}>
         <Text style={{ color: colors.gold, fontWeight: '700', fontSize: 18 }}>{skills[key]}</Text>
         <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{key} of {max}</Text>
       </View>)}

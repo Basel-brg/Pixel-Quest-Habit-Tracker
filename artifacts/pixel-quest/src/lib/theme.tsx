@@ -12,7 +12,7 @@ function readCache(uid: string | null): ThemeId | null {
   try { const v = localStorage.getItem(cacheKey(uid)); return isTheme(v) ? v : null; } catch { return null; }
 }
 
-interface ThemeCtx { theme: ThemeId; confirmed: ThemeId | null; saving: boolean; error: string; setTheme: (t: ThemeId) => void; retry: () => void; dismissError: () => void }
+interface ThemeCtx { theme: ThemeId; confirmed: ThemeId | null; saving: boolean; error: string; setTheme: (t: ThemeId) => void; preview: ThemeId | null; setPreview: (t: ThemeId | null) => void; retry: () => void; dismissError: () => void }
 const Ctx = createContext<ThemeCtx | null>(null);
 export function useTheme(): ThemeCtx { const c = useContext(Ctx); if (!c) throw new Error('useTheme outside ThemeProvider'); return c; }
 
@@ -21,6 +21,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const serverTheme = isTheme(snap?.profile.selectedTheme) ? snap!.profile.selectedTheme : null;
   const [optimistic, setOptimistic] = useState<ThemeId | null>(null);
   const [saving, setSaving] = useState(false);
+  // Local-only preview (onboarding): applies instantly without touching the saved theme.
+  const [preview, setPreviewState] = useState<ThemeId | null>(null);
+  const setPreview = useCallback((t: ThemeId | null) => setPreviewState(t && isTheme(t) ? t : null), []);
   const [error, setError] = useState('');
   const lastTry = useRef<ThemeId | null>(null);
   const savingRef = useRef(false);
@@ -44,7 +47,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', on);
   }, [userId]);
 
-  const theme: ThemeId = userId ? (optimistic ?? serverTheme ?? cached ?? DEFAULT_THEME) : DEFAULT_THEME;
+  const theme: ThemeId = userId ? (preview ?? optimistic ?? serverTheme ?? cached ?? DEFAULT_THEME) : DEFAULT_THEME;
   const first = useRef(true);
   useEffect(() => {
     const el = document.documentElement;
@@ -85,7 +88,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [flush]);
   useEffect(() => { if (!anyPending && queued.current) void flush(); }, [anyPending, flush, optimistic]);
   const retry = useCallback(() => { if (lastTry.current) setTheme(lastTry.current); }, [setTheme]);
-  const value = useMemo<ThemeCtx>(() => ({ theme, confirmed: serverTheme ?? cached, saving, error, setTheme, retry, dismissError: () => setError('') }), [theme, serverTheme, cached, saving, error, setTheme, retry]);
+  const value = useMemo<ThemeCtx>(() => ({ theme, confirmed: serverTheme ?? cached, saving, error, setTheme, preview, setPreview, retry, dismissError: () => setError('') }), [theme, serverTheme, cached, saving, error, setTheme, preview, setPreview, retry]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

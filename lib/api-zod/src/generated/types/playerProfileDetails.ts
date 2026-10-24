@@ -8,10 +8,16 @@
 import type { AvatarId } from './avatarId';
 import type { AvatarOption } from './avatarOption';
 import type { HabitStreakSummary } from './habitStreakSummary';
+import type { OnboardingDraft } from './onboardingDraft';
 import type { PlayerMilestone } from './playerMilestone';
+import type { PlayerProfileDetailsHeroPath } from './playerProfileDetailsHeroPath';
 import type { ThemeId } from './themeId';
 
 export interface PlayerProfileDetails {
+  hasCompletedOnboarding: boolean;
+  onboardingDraft: OnboardingDraft;
+  /** @nullable */
+  heroPath: PlayerProfileDetailsHeroPath;
   username: string;
   avatarId: AvatarId;
   selectedTheme: ThemeId;

@@ -65,3 +65,13 @@ export const THEMES: Record<ThemeId, ThemeTokens> = {
     title: { fontFamily: 'DMSans_700Bold', fontSize: 24, lineHeight: 30 }, section: { fontFamily: 'DMSans_700Bold', fontSize: 16, lineHeight: 22 },
     eyebrow: { fontFamily: 'DMSans_700Bold', letterSpacing: 0.6, textTransform: 'none' }, button: { fontFamily: 'DMSans_700Bold', fontSize: 14 }, numeric: { fontFamily: 'DMSans_700Bold' } },
 };
+
+/** First-screen Camp mockups (same artwork as the web onboarding). */
+export const THEME_PREVIEW_IMAGES: Record<ThemeId, number> = {
+  retro: require('../assets/images/themes/theme-retro.png'),
+  anime: require('../assets/images/themes/theme-anime.png'),
+  cyberpunk: require('../assets/images/themes/theme-cyberpunk.png'),
+  parchment: require('../assets/images/themes/theme-parchment.png'),
+  brutalist: require('../assets/images/themes/theme-brutalist.png'),
+  cozy: require('../assets/images/themes/theme-cozy.png'),
+};

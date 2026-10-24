@@ -22,6 +22,8 @@ import QuestsPage from '@/pages/quests';
 import InventoryPage from '@/pages/inventory';
 import JournalPage from '@/pages/journal';
 import SettingsPage from '@/pages/settings';
+import OnboardingPage, { finishing } from '@/pages/onboarding';
+import { useRpg } from '@/lib/rpg-context';
 
 const queryClient = new QueryClient();
 const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
@@ -58,12 +60,27 @@ function AccountScope({ children }: { children: ReactNode }) {
   // Reset forms, feedback, reminders and requests as well as server cache on account changes.
   return <RpgProvider key={user?.id ?? 'signed-out'}><ThemeProvider><RemindersProvider>{children}</RemindersProvider></ThemeProvider></RpgProvider>;
 }
-function Protected({ component: C }: { component: () => ReactNode }) { return <><ClerkLoading><div className="grid min-h-screen place-items-center font-mono text-sm text-[#73e6df]">Loading your save...</div></ClerkLoading><Show when="signed-in"><Shell><C/></Shell></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
+const loadingSave = <div data-testid="status-loading-save" className="grid min-h-[100dvh] place-items-center font-mono text-sm text-[color:var(--pq-cyan)]">Loading your save...</div>;
+/** Onboarding marker gate: only an explicit server boolean resolves it; unresolved never bypasses. */
+function OnboardingGate({ mode, children }: { mode: 'app' | 'onboarding'; children: ReactNode }) {
+  const { snap, isError, refetch } = useRpg();
+  const marker = snap?.profile && typeof snap.profile.hasCompletedOnboarding === 'boolean' ? snap.profile.hasCompletedOnboarding : undefined;
+  if (marker === undefined) {
+    if (isError) return <div className="grid min-h-[100dvh] place-items-center px-4 text-center"><div><p className="mb-4 text-sm text-[color:var(--pq-ink2)]">We couldn't confirm your save file.</p><button type="button" data-testid="button-gate-retry" onClick={refetch} className="pixel-button bg-[color:var(--pq-gold)] px-4 py-2.5 text-sm font-bold text-[color:var(--pq-onaccent)]">Try again</button></div></div>;
+    return <div className="grid min-h-[100dvh] place-items-center text-center"><div><p data-testid="status-loading-save" className="font-mono text-sm text-[color:var(--pq-cyan)]">Loading your save...</p><button type="button" data-testid="button-gate-reload" onClick={refetch} className="mt-4 text-xs text-[color:var(--pq-mute)] underline">Taking long? Retry</button></div></div>;
+  }
+  if (mode === 'app' && marker === false) return <Redirect to="/onboarding" replace/>;
+  if (mode === 'onboarding' && marker === true && !finishing.current) return <Redirect to="/camp" replace/>;
+  return <>{children}</>;
+}
+function Protected({ component: C }: { component: () => ReactNode }) { return <><ClerkLoading>{loadingSave}</ClerkLoading><Show when="signed-in"><OnboardingGate mode="app"><Shell><C/></Shell></OnboardingGate></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
+function OnboardingRoute() { return <><ClerkLoading>{loadingSave}</ClerkLoading><Show when="signed-in"><OnboardingGate mode="onboarding"><OnboardingPage/></OnboardingGate></Show><Show when="signed-out"><Redirect to="/"/></Show></>; }
 function Router() {
   const [location, setLocation]=useLocation();
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} ui={ui} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} localization={{signIn:{start:{title:'Continue your save',subtitle:'Sign in to your Pixel Quest account'}},signUp:{start:{title:'Begin your quest',subtitle:'Create your own adventurer account'}}}} routerPush={(to)=>setLocation(stripBase(to))} routerReplace={(to)=>setLocation(stripBase(to),{replace:true})}>
     <QueryClientProvider client={queryClient}><CacheInvalidator/><TooltipProvider><AccountScope><ErrorBoundary resetKey={location}><Switch>
       <Route path="/" component={HomeRoute}/><Route path="/sign-in/*?" component={SignInPage}/><Route path="/sign-up/*?" component={SignUpPage}/>
+      <Route path="/onboarding" component={OnboardingRoute}/>
       <Route path="/camp">{()=><Protected component={CampPage}/>}</Route><Route path="/habits">{()=><Protected component={HabitsPage}/>}</Route><Route path="/quests">{()=><Protected component={QuestsPage}/>}</Route><Route path="/inventory">{()=><Protected component={InventoryPage}/>}</Route><Route path="/rewards">{()=><Protected component={RewardsPage}/>}</Route><Route path="/journal">{()=><Protected component={JournalPage}/>}</Route><Route path="/profile">{()=><Protected component={ProfilePage}/>}</Route>
       <Route path="/settings">{()=><Protected component={SettingsPage}/>}</Route>
       <Route component={NotFound}/></Switch></ErrorBoundary></AccountScope><Toaster/></TooltipProvider></QueryClientProvider>

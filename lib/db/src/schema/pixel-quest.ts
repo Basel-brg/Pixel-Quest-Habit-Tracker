@@ -3,6 +3,7 @@ import {
   boolean,
   date,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -116,6 +117,9 @@ export const playerProfileTable = pgTable(
     }),
     xp: integer("xp").notNull().default(0),
     gold: integer("gold").notNull().default(0),
+    hasCompletedOnboarding: boolean("has_completed_onboarding").notNull().default(false),
+    onboardingDraft: jsonb("onboarding_draft").$type<Record<string, unknown>>().notNull().default(sql`'{"step":1}'::jsonb`),
+    heroPath: text("hero_path").$type<"STR" | "INT" | "WIS">(),
     lifetimeTasksVanquished: integer("lifetime_tasks_vanquished")
       .notNull()
       .default(0),

@@ -28,4 +28,7 @@ export const RpgActionInputAction = {
   drawChest: 'drawChest',
   savings: 'savings',
   profile: 'profile',
+  onboardingDraft: 'onboardingDraft',
+  completeOnboarding: 'completeOnboarding',
+  skipOnboarding: 'skipOnboarding',
 } as const;

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AvatarId } from './avatarId';
+import type { OnboardingDraft } from './onboardingDraft';
 import type { RpgActionInputAction } from './rpgActionInputAction';
 import type { RpgActionInputDifficulty } from './rpgActionInputDifficulty';
 import type { RpgActionInputFrequency } from './rpgActionInputFrequency';
@@ -22,6 +23,7 @@ export interface RpgActionInput {
      */
   requestId: string;
   action: RpgActionInputAction;
+  onboardingDraft?: OnboardingDraft;
   /** @minimum 1 */
   id?: number;
   /** @maxLength 100 */

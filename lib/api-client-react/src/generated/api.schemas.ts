@@ -291,16 +291,6 @@ export const RpgSnapshotEffect = {
   reward: 'reward',
 } as const;
 
-export type AvatarId = typeof AvatarId[keyof typeof AvatarId];
-
-
-export const AvatarId = {
-  novice: 'novice',
-  squire: 'squire',
-  knight: 'knight',
-  paladin: 'paladin',
-} as const;
-
 export type ThemeId = typeof ThemeId[keyof typeof ThemeId];
 
 
@@ -311,6 +301,66 @@ export const ThemeId = {
   parchment: 'parchment',
   brutalist: 'brutalist',
   cozy: 'cozy',
+} as const;
+
+export type OnboardingDraftHeroPath = typeof OnboardingDraftHeroPath[keyof typeof OnboardingDraftHeroPath];
+
+
+export const OnboardingDraftHeroPath = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
+export interface OnboardingDraft {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  step: number;
+  /** @maxLength 20 */
+  username?: string;
+  themeId?: ThemeId;
+  heroPath?: OnboardingDraftHeroPath;
+  /** @maxLength 120 */
+  habitTitle?: string;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  habitTarget?: number;
+  /** @maxLength 30 */
+  habitUnit?: string;
+  requiresPhotoProof?: boolean;
+  /** @maxLength 120 */
+  rewardTitle?: string;
+  /**
+     * @minimum 1
+     * @maximum 3650
+     */
+  rewardStreak?: number;
+}
+
+/**
+ * @nullable
+ */
+export type PlayerProfileDetailsHeroPath = typeof PlayerProfileDetailsHeroPath[keyof typeof PlayerProfileDetailsHeroPath] | null;
+
+
+export const PlayerProfileDetailsHeroPath = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
+export type AvatarId = typeof AvatarId[keyof typeof AvatarId];
+
+
+export const AvatarId = {
+  novice: 'novice',
+  squire: 'squire',
+  knight: 'knight',
+  paladin: 'paladin',
 } as const;
 
 export interface HabitStreakSummary {
@@ -337,6 +387,10 @@ export interface PlayerMilestone {
 }
 
 export interface PlayerProfileDetails {
+  hasCompletedOnboarding: boolean;
+  onboardingDraft: OnboardingDraft;
+  /** @nullable */
+  heroPath: PlayerProfileDetailsHeroPath;
   username: string;
   avatarId: AvatarId;
   selectedTheme: ThemeId;
@@ -403,6 +457,9 @@ export const RpgActionInputAction = {
   drawChest: 'drawChest',
   savings: 'savings',
   profile: 'profile',
+  onboardingDraft: 'onboardingDraft',
+  completeOnboarding: 'completeOnboarding',
+  skipOnboarding: 'skipOnboarding',
 } as const;
 
 export type RpgActionInputFrequency = typeof RpgActionInputFrequency[keyof typeof RpgActionInputFrequency];
@@ -458,6 +515,7 @@ export interface RpgActionInput {
      */
   requestId: string;
   action: RpgActionInputAction;
+  onboardingDraft?: OnboardingDraft;
   /** @minimum 1 */
   id?: number;
   /** @maxLength 100 */

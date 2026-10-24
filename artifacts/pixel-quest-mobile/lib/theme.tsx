@@ -7,9 +7,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getGetPixelQuestProfileQueryKey, useGetPixelQuestProfile, useUpdatePixelQuestProfile } from '@workspace/api-client-react';
 import { THEMES, isThemeId, type ThemeId, type ThemeTokens } from '@/constants/themes';
 
-interface ThemeCtx { tokens: ThemeTokens; themeId: ThemeId; confirmed: ThemeId; saving: boolean; error: string; setTheme: (t: ThemeId) => void; retry: () => void; dismissError: () => void }
+interface ThemeCtx { tokens: ThemeTokens; themeId: ThemeId; confirmed: ThemeId; saving: boolean; error: string; setTheme: (t: ThemeId) => void; preview: ThemeId | null; setPreview: (t: ThemeId | null) => void; retry: () => void; dismissError: () => void }
 const noop = () => undefined;
-const Ctx = createContext<ThemeCtx>({ tokens: THEMES.retro, themeId: 'retro', confirmed: 'retro', saving: false, error: '', setTheme: noop, retry: noop, dismissError: noop });
+const Ctx = createContext<ThemeCtx>({ tokens: THEMES.retro, themeId: 'retro', confirmed: 'retro', saving: false, error: '', setTheme: noop, preview: null, setPreview: noop, retry: noop, dismissError: noop });
 export const useTheme = () => useContext(Ctx);
 
 const key = (uid: string) => `pq:theme:${uid}`;
@@ -22,6 +22,9 @@ export function ThemeProvider({ userId, enabled, children }: { userId: string | 
   const [confirmed, setConfirmed] = useState<ThemeId>('retro');
   const [optimistic, setOptimistic] = useState<ThemeId | null>(null);
   const [saving, setSaving] = useState(false);
+  // Local-only preview (onboarding): instant, never saved by this provider.
+  const [preview, setPreviewState] = useState<ThemeId | null>(null);
+  const setPreview = useCallback((t: ThemeId | null) => setPreviewState(t && isThemeId(t) ? t : null), []);
   const [error, setError] = useState('');
   const confirmedAt = useRef(0);
   const savingRef = useRef(false);
@@ -32,7 +35,7 @@ export function ThemeProvider({ userId, enabled, children }: { userId: string | 
   // Account change: drop previous account's state, then load only this account's cache.
   useEffect(() => {
     confirmedAt.current = 0; savingRef.current = false;
-    setConfirmed('retro'); setOptimistic(null); setSaving(false); setError(''); lastTry.current = null;
+    setConfirmed('retro'); setOptimistic(null); setPreviewState(null); setSaving(false); setError(''); lastTry.current = null;
     if (!uid) return;
     let live = true;
     AsyncStorage.getItem(key(uid)).then((raw) => {
@@ -100,14 +103,14 @@ export function ThemeProvider({ userId, enabled, children }: { userId: string | 
   }, [flush]);
   useEffect(() => { if (enabled && queued.current && !savingRef.current) void flush(); }, [enabled, optimistic, saving, flush]);
 
-  const themeId: ThemeId = uid ? (optimistic ?? confirmed) : 'retro';
+  const themeId: ThemeId = uid ? (preview ?? optimistic ?? confirmed) : 'retro';
   const tokens = THEMES[themeId];
   const value = useMemo<ThemeCtx>(() => ({
     tokens, themeId, confirmed, saving, error,
-    setTheme: choose,
+    setTheme: choose, preview, setPreview,
     retry: () => { if (lastTry.current) choose(lastTry.current); },
     dismissError: () => setError(''),
-  }), [tokens, themeId, confirmed, saving, error, choose]);
+  }), [tokens, themeId, confirmed, saving, error, choose, preview, setPreview]);
   return <Ctx.Provider value={value}>
     <StatusBar style={tokens.dark ? 'light' : 'dark'} />
     {children}

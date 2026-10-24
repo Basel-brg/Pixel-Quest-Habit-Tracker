@@ -38,6 +38,80 @@ test("AI throttling reads the real Drizzle database clock and preserves account/
   assert.equal(await consumeAiRequestLimit(otherUid, "assistant"), true);
 });
 
+function setupDraft(uid: string, patch: Record<string, unknown> = {}) {
+  return {
+    step: 5, username: `hero_${uid.replaceAll("-", "").slice(-12)}`, themeId: "anime" as const,
+    heroPath: "INT" as const, habitTitle: "قراءة 15 صفحة", habitTarget: 15, habitUnit: "صفحة",
+    requiresPhotoProof: true, rewardTitle: "قهوة مميزة", rewardStreak: 3, ...patch,
+  };
+}
+
+test("onboarding drafts sync without creating records, awarding XP, or affecting another account", async () => {
+  const uid = await account(25, 10), other = await account();
+  assert.equal((await runGame(uid)).profile.hasCompletedOnboarding, false);
+  await act(uid, { action: "onboardingDraft", onboardingDraft: { ...setupDraft(uid), step: 3 } });
+  const restored = await runGame(uid);
+  assert.equal(restored.profile.onboardingDraft.step, 3);
+  assert.equal(restored.profile.onboardingDraft.habitTarget, 15);
+  assert.equal(restored.profile.selectedTheme, "anime");
+  assert.equal(restored.profile.hasCompletedOnboarding, false);
+  assert.equal(restored.profile.xp, 10); assert.equal(restored.profile.gold, 25);
+  assert.equal(restored.habits.length, 0); assert.equal(restored.rewards.length, 0);
+  assert.deepEqual((await runGame(other)).profile.onboardingDraft, { step: 1 });
+});
+
+test("concurrent onboarding finishes grant exactly 50 XP and create a single bound habit/reward", async () => {
+  const uid = await account(20, 7), draft = setupDraft(uid);
+  await Promise.all(Array.from({ length: 3 }, () => act(uid, { action: "completeOnboarding", onboardingDraft: draft })));
+  const s = await runGame(uid);
+  assert.equal(s.profile.hasCompletedOnboarding, true); assert.equal(s.profile.heroPath, "INT");
+  assert.equal(s.profile.xp, 57); assert.equal(s.profile.gold, 20);
+  assert.equal(s.habits.length, 1); assert.equal(s.rewards.length, 1);
+  assert.equal(s.habits[0].target, 15); assert.equal(s.habits[0].stat, "INT");
+  assert.equal(s.habits[0].requiresPhotoProof, true);
+  assert.deepEqual(s.skills, { STR: 0, INT: 0, WIS: 0 });
+  assert.deepEqual(s.rewards[0].conditions.map(({ type, target, habitId }) => ({ type, target, ...(habitId ? { habitId } : {}) })),
+    [{ type: "level", target: 2 }, { type: "streak", target: 3, habitId: s.habits[0].id }]);
+  assert.equal(s.rewards[0].claimCost, 0);
+  assert.equal(s.rewards[0].status, "locked");
+  assert.equal(s.profile.milestones.filter(m => m.id === "onboarding-completed").length, 1);
+  await act(uid, { action: "onboardingDraft", onboardingDraft: { step: 1, themeId: "cozy" } });
+  await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, { rewardStreak: 5 }) });
+  const replay = await runGame(uid);
+  assert.equal(replay.profile.xp, 57); assert.equal(replay.profile.selectedTheme, "anime");
+  assert.equal(replay.rewards.length, 1); assert.equal(replay.habits.length, 1);
+});
+
+test("invalid or taken hero names roll back onboarding and leave no starter awards or records", async () => {
+  const uid = await account(0, 0), other = await account();
+  const taken = (await runGame(other)).profile.username;
+  await reject(act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, { username: taken }) }));
+  await reject(act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, { username: "bad name" }) }), 400);
+  const s = await runGame(uid);
+  assert.equal(s.profile.hasCompletedOnboarding, false); assert.equal(s.profile.xp, 0);
+  assert.equal(s.habits.length, 0); assert.equal(s.rewards.length, 0);
+});
+
+test("skip is persistent and cannot be used to later farm starter XP", async () => {
+  const uid = await account(7, 9);
+  await act(uid, { action: "onboardingDraft", onboardingDraft: setupDraft(uid, { step: 4 }) });
+  await act(uid, { action: "skipOnboarding" });
+  await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid) });
+  const s = await runGame(uid);
+  assert.equal(s.profile.hasCompletedOnboarding, true); assert.equal(s.profile.xp, 9);
+  assert.equal(s.profile.gold, 7); assert.equal(s.habits.length, 0); assert.equal(s.rewards.length, 0);
+});
+
+test("onboarding meal reward keeps both the level and five-day streak gates", async () => {
+  const uid = await account(0, 0);
+  const s = await act(uid, { action: "completeOnboarding", onboardingDraft: setupDraft(uid, {
+    heroPath: "STR", habitTitle: "تمرين 30 دقيقة", habitTarget: 30, habitUnit: "دقيقة",
+    requiresPhotoProof: false, rewardTitle: "وجبة مفتوحة", rewardStreak: 5,
+  }) });
+  assert.equal(s.profile.heroPath, "STR"); assert.equal(s.habits[0].requiresPhotoProof, false);
+  assert.equal(s.rewards[0].conditions[0].target, 2); assert.equal(s.rewards[0].conditions[1].target, 5);
+});
+
 test("local-day boundaries, DST midnight lengths and level thresholds", () => {
   assert.equal(localDay(new Date("2026-10-20T22:30Z"), "Europe/Istanbul"), "2026-10-21");
   assert.equal(localDay(new Date("2026-10-20T01:30Z"), "America/New_York"), "2026-10-19");

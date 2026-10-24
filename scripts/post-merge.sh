@@ -8,4 +8,5 @@ if ! pnpm run test:security; then
   pnpm install --frozen-lockfile --force
   pnpm run test:security
 fi
-pnpm --filter db push
+pnpm --filter @workspace/db run migrate:onboarding
+pnpm --filter @workspace/db run push
