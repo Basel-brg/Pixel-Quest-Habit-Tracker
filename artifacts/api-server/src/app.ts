@@ -47,6 +47,7 @@ const trustedOrigins = new Set<string>([
 if (process.env.NODE_ENV === "development") {
   for (const origin of [
     process.env.REPLIT_DEV_DOMAIN,
+    process.env.REPLIT_EXPO_DEV_DOMAIN,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
   ]) {
