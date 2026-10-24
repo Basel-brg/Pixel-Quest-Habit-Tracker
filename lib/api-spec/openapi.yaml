@@ -111,6 +111,34 @@ paths:
           description: Image verification provider failed
         "503":
           description: Photo verification is not configured
+  /ai/quest-assistant:
+    post:
+      operationId: questAssistant
+      tags: [pixel-quest]
+      summary: Suggest a habit or quest draft from a short text prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestAssistantInput"
+      responses:
+        "200":
+          description: Editable suggestion only; no habit or quest is saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestAssistantResult"
+        "400":
+          description: Invalid prompt
+        "401":
+          description: Sign in required
+        "429":
+          description: AI request limit reached
+        "502":
+          description: AI suggestion provider failed
+        "503":
+          description: AI suggestion is not configured
   /healthz:
     get:
       operationId: healthCheck
@@ -725,6 +753,9 @@ components:
         timezone: { type: string, maxLength: 100 }
         chestEnabled: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        questStat:
+          type: [string, "null"]
+          enum: [STR, INT, WIS, null]
         equipped: { type: boolean }
         username: { type: string, pattern: "^[A-Za-z0-9_]{3,20}$" }
         avatarId: { $ref: "#/components/schemas/AvatarId" }
@@ -752,6 +783,32 @@ components:
         isVerified: { type: boolean }
         reason: { type: string, minLength: 1, maxLength: 500 }
         snapshot: { $ref: "#/components/schemas/RpgSnapshot" }
+    QuestAssistantInput:
+      type: object
+      required: [itemType, prompt]
+      properties:
+        itemType: { type: string, enum: [habit, quest] }
+        prompt: { type: string, minLength: 1, maxLength: 500 }
+    QuestAssistantResult:
+      type: object
+      required: [itemType, title, category, stat, target, unit, frequency, days, difficulty, priority, dueDate]
+      properties:
+        itemType: { type: string, enum: [habit, quest] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        category: { type: string, minLength: 1, maxLength: 40 }
+        stat:
+          type: [string, "null"]
+          enum: [STR, INT, WIS, null]
+        target: { type: number, minimum: 1, maximum: 1000000 }
+        unit: { type: string, maxLength: 30 }
+        frequency: { type: string, enum: [daily, weekly] }
+        days:
+          type: array
+          maxItems: 7
+          items: { type: integer, minimum: 0, maximum: 6 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        priority: { type: boolean }
+        dueDate: { type: [string, "null"], format: date }
     VoiceTask:
       type: object
       required: [title, confidence]
@@ -796,7 +853,7 @@ components:
         - status
     Habit:
       type: object
-      required: [id, title, category, frequency, days, archived, requiresPhotoProof, createdAt, completedDates]
+      required: [id, title, category, frequency, days, archived, requiresPhotoProof, mandatory, target, unit, stat, createdAt, completedDates]
       properties:
         id: { type: integer }
         title: { type: string }
@@ -807,6 +864,10 @@ components:
           items: { type: integer }
         archived: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        mandatory: { type: boolean }
+        target: { type: number }
+        unit: { type: string }
+        stat: { type: string, enum: [STR, INT, WIS] }
         createdAt: { type: string, format: date-time }
         completedDates:
           type: array
@@ -822,6 +883,10 @@ components:
           type: array
           items: { type: integer, minimum: 0, maximum: 6 }
         requiresPhotoProof: { type: boolean }
+        mandatory: { type: boolean }
+        target: { type: number, minimum: 1, maximum: 1000000 }
+        unit: { type: string, maxLength: 30 }
+        stat: { type: string, enum: [STR, INT, WIS] }
     HabitUpdate:
       type: object
       properties:
@@ -833,6 +898,10 @@ components:
           items: { type: integer, minimum: 0, maximum: 6 }
         archived: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        mandatory: { type: boolean }
+        target: { type: number, minimum: 1, maximum: 1000000 }
+        unit: { type: string, maxLength: 30 }
+        stat: { type: string, enum: [STR, INT, WIS] }
     CompletionInput:
       type: object
       required: [date]
@@ -845,7 +914,7 @@ components:
         date: { type: string, format: date }
     QuestTask:
       type: object
-      required: [id, title, difficulty, category, priority, requiresPhotoProof, status, dueDate, createdAt, completedAt]
+      required: [id, title, difficulty, category, priority, requiresPhotoProof, stat, status, dueDate, createdAt, completedAt]
       properties:
         id: { type: integer }
         title: { type: string }
@@ -853,6 +922,9 @@ components:
         category: { type: string }
         priority: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        stat:
+          type: [string, "null"]
+          enum: [STR, INT, WIS, null]
         status: { type: string, enum: [active, completed] }
         dueDate: { type: [string, "null"], format: date }
         createdAt: { type: string, format: date-time }
@@ -866,6 +938,9 @@ components:
         category: { type: string, minLength: 1 }
         priority: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        stat:
+          type: [string, "null"]
+          enum: [STR, INT, WIS, null]
         dueDate: { type: [string, "null"], format: date }
     TaskUpdate:
       type: object
@@ -875,6 +950,9 @@ components:
         category: { type: string, minLength: 1 }
         priority: { type: boolean }
         requiresPhotoProof: { type: boolean }
+        stat:
+          type: [string, "null"]
+          enum: [STR, INT, WIS, null]
         dueDate: { type: [string, "null"], format: date }
     PlayerProfile:
       type: object

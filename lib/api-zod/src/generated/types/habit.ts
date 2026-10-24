@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HabitFrequency } from './habitFrequency';
+import type { HabitStat } from './habitStat';
 
 export interface Habit {
   id: number;
@@ -15,6 +16,10 @@ export interface Habit {
   days: number[];
   archived: boolean;
   requiresPhotoProof: boolean;
+  mandatory: boolean;
+  target: number;
+  unit: string;
+  stat: HabitStat;
   createdAt: Date;
   completedDates: Date[];
 }

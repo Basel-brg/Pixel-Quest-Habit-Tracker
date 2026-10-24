@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Archive, Pencil, Plus, Trash2 } from 'lucide-react';
-import type { RpgHabit, RpgActionInputFrequency, RpgActionInputStat } from '@workspace/api-client-react';
+import { useQuestAssistant } from '@workspace/api-client-react';
+import type { QuestAssistantResult, RpgHabit, RpgActionInputFrequency, RpgActionInputStat } from '@workspace/api-client-react';
 import { Btn, Empty, Field, Gate, Modal, PageHead, Panel, SectionHead, cx, weekDays } from '@/components/kit';
 import { HabitProgress } from '@/components/habit-progress';
 import { useRpg } from '@/lib/rpg-context';
@@ -11,6 +12,12 @@ import { OfflineDraftList } from '@/components/offline-draft-list';
 interface Draft { id?: number; title: string; category: string; frequency: RpgActionInputFrequency; days: number[]; mandatory: boolean; target: number; unit: string; stat: RpgActionInputStat; archived: boolean; requiresPhotoProof: boolean }
 const blank: Draft = { title: '', category: 'Wellbeing', frequency: 'daily', days: [1, 2, 3, 4, 5], mandatory: false, target: 1, unit: 'time', stat: 'STR', archived: false, requiresPhotoProof: false };
 const dayColor: Record<string, string> = { complete: 'var(--pq-cyan)', partial: 'var(--pq-gold)', missed: 'var(--pq-danger)', off: 'var(--pq-line2)', protected: 'var(--pq-purple)', upcoming: 'var(--pq-line)' };
+const habitPresets: { id: string; label: string; title: string; category: string; stat: RpgActionInputStat; target: number; unit: string }[] = [
+  { id: 'water', label: '💧 شرب 2.5 لتر ماء', title: 'شرب 2.5 لتر ماء', category: 'Health', stat: 'STR', target: 2.5, unit: 'لتر' },
+  { id: 'reading', label: '📖 قراءة 15 صفحة', title: 'قراءة 15 صفحة', category: 'Learning', stat: 'INT', target: 15, unit: 'صفحة' },
+  { id: 'meditation', label: '🧘 تأمل 10 دقائق', title: 'تأمل 10 دقائق', category: 'Mindfulness', stat: 'WIS', target: 10, unit: 'دقيقة' },
+  { id: 'walking', label: '🏃‍♂️ مشي 6000 خطوة', title: 'مشي 6000 خطوة', category: 'Fitness', stat: 'STR', target: 6000, unit: 'خطوة' },
+];
 
 function Reminder({ habit }: { habit: RpgHabit }) {
   const { prefs, setTime, permission } = useReminders();
@@ -24,9 +31,12 @@ function Reminder({ habit }: { habit: RpgHabit }) {
 export default function HabitsPage() {
   const { run, isPending, snap } = useRpg();
   const offline = useOfflineDrafts();
+  const assistant = useQuestAssistant();
   const [draft, setDraft] = useState<Draft | null>(null); const [archivedView, setArchivedView] = useState(false); const [err, setErr] = useState('');
   const [offlineDraftId, setOfflineDraftId] = useState<string | null>(null);
-  const open = (h?: RpgHabit) => { setErr(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived, requiresPhotoProof: h.requiresPhotoProof } : blank); };
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiError, setAiError] = useState('');
+  const open = (h?: RpgHabit) => { setErr(''); setAiPrompt(''); setAiError(''); setOfflineDraftId(null); setDraft(h ? { id: h.id, title: h.title, category: h.category, frequency: h.frequency, days: h.days, mandatory: h.mandatory, target: h.target, unit: h.unit, stat: h.stat, archived: h.archived, requiresPhotoProof: h.requiresPhotoProof } : blank); };
   const payload = (d: Draft) => ({ action: 'saveHabit' as const, id: d.id, title: d.title.trim(), category: d.category.trim(), frequency: d.frequency, days: d.frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : d.days, mandatory: d.mandatory, target: Math.max(1, Number(d.target) || 1), unit: d.unit.trim() || 'time', stat: d.stat, archived: d.archived, requiresPhotoProof: d.requiresPhotoProof });
   const save = async (e: FormEvent) => {
     e.preventDefault(); if (!draft) return;
@@ -43,6 +53,34 @@ export default function HabitsPage() {
   };
   const editing = draft?.id ? snap?.habits.find((h) => h.id === draft.id) : undefined;
   const upd = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
+  const applySuggestion = (suggestion: QuestAssistantResult) => setDraft((current) => current ? {
+    ...current,
+    title: suggestion.title,
+    category: suggestion.category,
+    stat: suggestion.stat ?? 'STR',
+    target: suggestion.target,
+    unit: suggestion.unit,
+    frequency: suggestion.frequency,
+    days: suggestion.frequency === 'daily' ? [1, 2, 3, 4, 5] : suggestion.days,
+  } : current);
+  const requestSuggestion = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt) return;
+    if (offline.online === false) { setAiError('AI suggestions need an internet connection. You can still save a manual draft offline.'); return; }
+    setAiError('');
+    try { applySuggestion(await assistant.mutateAsync({ data: { itemType: 'habit', prompt } })); }
+    catch (error) { setAiError(error instanceof Error ? error.message : 'Could not analyze that description. Try again.'); }
+  };
+  const applyPreset = (preset: (typeof habitPresets)[number]) => setDraft((current) => current ? {
+    ...current,
+    title: preset.title,
+    category: preset.category,
+    stat: preset.stat,
+    target: preset.target,
+    unit: preset.unit,
+    frequency: 'daily',
+    days: [1, 2, 3, 4, 5],
+  } : current);
   return <Gate>{(s) => {
     const list = s.habits.filter((h) => h.archived === archivedView);
     return <>
@@ -52,6 +90,8 @@ export default function HabitsPage() {
         const input = item.input;
         setOfflineDraftId(item.id);
         setErr('');
+         setAiPrompt('');
+         setAiError('');
         setDraft({
           title: input.title ?? '',
           category: input.category ?? 'Personal',
@@ -83,20 +123,32 @@ export default function HabitsPage() {
             <p className="mt-2 text-[10px] text-[color:var(--pq-mute)]">Cyan complete, gold partial, red missed, purple protected, dark off day. Past days are read-only.</p></div>
           {!h.archived && <Reminder habit={h}/>}</article>)}</div>
           : <Empty title={archivedView ? 'NO ARCHIVED HABITS' : 'NO ROUTINES YET'} detail={archivedView ? 'Archived habits keep their history here.' : 'Start with one small habit you would like to repeat.'} action={!archivedView && <Btn testId="button-empty-add-habit" onClick={() => open()}><Plus size={15}/> Add a habit</Btn>}/>}</Panel>
-      {draft && <Modal title={draft.id ? 'Edit habit' : 'Create a habit'} onClose={() => setDraft(null)}>
-        <form onSubmit={(e) => void save(e)} className="space-y-4">
-          {editing && editing.progress > 0 && <div data-testid="notice-clear-progress" className="border border-[color:var(--pq-mute)] bg-[color:var(--pq-panel)] p-3 text-xs text-[color:var(--pq-gold)]">Today has progress logged ({editing.progress}/{editing.target}). Clear it before changing the habit shape.<div className="mt-2"><Btn testId="button-clear-progress" variant="quiet" className="!py-1.5 text-xs" disabled={isPending(`progressHabit:${editing.id}`)} onClick={() => void run({ action: 'progressHabit', id: editing.id, value: 0, date: s.today })}>Clear today's progress</Btn></div></div>}
-          <Field label="Habit name"><input autoFocus required maxLength={120} data-testid="input-habit-title" value={draft.title} onChange={(e) => upd('title', e.target.value)} className="field"/></Field>
-          <div className="grid gap-4 sm:grid-cols-2"><Field label="Category"><input required maxLength={40} data-testid="input-habit-category" value={draft.category} onChange={(e) => upd('category', e.target.value)} className="field"/></Field>
-            <Field label="Stat"><select data-testid="select-habit-stat" value={draft.stat} onChange={(e) => upd('stat', e.target.value as RpgActionInputStat)} className="field"><option value="STR">STR (body)</option><option value="INT">INT (mind)</option><option value="WIS">WIS (spirit)</option></select></Field></div>
-          <div className="grid gap-4 sm:grid-cols-2"><Field label="Daily target" hint="1 makes a simple check-off."><input type="number" min={1} max={1000000} required data-testid="input-habit-target" value={draft.target} onChange={(e) => upd('target', Number(e.target.value))} className="field"/></Field>
-            <Field label="Unit"><input maxLength={30} data-testid="input-habit-unit" value={draft.unit} onChange={(e) => upd('unit', e.target.value)} placeholder="pages, minutes..." className="field"/></Field></div>
-          <Field label="Schedule"><select data-testid="select-habit-frequency" value={draft.frequency} onChange={(e) => upd('frequency', e.target.value as RpgActionInputFrequency)} className="field"><option value="daily">Every day</option><option value="weekly">Custom days</option></select></Field>
-          {draft.frequency === 'weekly' && <fieldset><legend className="mb-2 text-xs font-bold text-[color:var(--pq-ink2)]">Repeat on</legend><div className="flex flex-wrap gap-2">{weekDays.map((d, i) => <button type="button" key={d} data-testid={`button-day-${i}`} aria-pressed={draft.days.includes(i)} onClick={() => upd('days', draft.days.includes(i) ? draft.days.filter((x) => x !== i) : [...draft.days, i].sort())} className={cx('border px-3 py-2 text-xs font-bold', draft.days.includes(i) ? 'border-[color:var(--pq-cyan)] bg-[color:var(--pq-line2)] text-[color:var(--pq-cyan)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{d}</button>)}</div></fieldset>}
-          <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-mandatory" checked={draft.mandatory} onChange={(e) => upd('mandatory', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-gold)]"/><span>Mandatory<span className="block text-[11px] text-[color:var(--pq-mute)]">Each missed scheduled day costs 10 HP (a shield absorbs one).</span></span></label>
-           <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">Must upload a photo to verify completion and claim rewards.</span></span></label>
-          {err && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{err}</p>}
-          <div className="flex justify-end gap-2 pt-2"><Btn testId="button-cancel-habit" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-habit" type="submit" disabled={isPending('saveHabit:editor')}>{isPending('saveHabit:editor') ? 'Saving...' : 'Save habit'}</Btn></div></form></Modal>}
+       {draft && <Modal title={draft.id ? 'Edit habit' : 'Create a habit'} onClose={() => setDraft(null)} contentClassName="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
+         <form onSubmit={(e) => void save(e)} className="flex min-h-0 flex-1 flex-col">
+           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-6 pr-1">
+             <div className="space-y-3 border border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] p-3">
+               <Field label="مساعدة سحرية ✨"><div className="flex flex-col gap-2 sm:flex-row"><input dir="auto" maxLength={500} data-testid="input-habit-ai-prompt" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="🔍 اكتب مهمتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم" className="field min-w-0 flex-1"/><Btn testId="button-habit-ai-fill" variant="cyan" className="shrink-0" disabled={!aiPrompt.trim() || assistant.isPending || offline.online === false} onClick={() => void requestSuggestion()}>{assistant.isPending ? 'جاري التحليل...' : 'مساعدة سحرية ✨'}</Btn></div></Field>
+               {offline.online === false && <p className="text-[11px] text-[color:var(--pq-mute)]">AI suggestions need an internet connection. Manual drafts still save offline.</p>}
+               {aiError && <p role="alert" data-testid="status-habit-ai-error" className="text-xs text-[color:var(--pq-danger)]">{aiError}</p>}
+             </div>
+             <div className="space-y-3 border border-[color:var(--pq-line)] bg-[color:var(--pq-panel2)] p-3">
+               <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[color:var(--pq-mute)]">قوالب سريعة</p>
+               <div className="flex flex-wrap gap-2">{habitPresets.map((preset) => <button type="button" key={preset.id} data-testid={`habit-template-${preset.id}`} onClick={() => applyPreset(preset)} className="border border-[color:var(--pq-line)] px-3 py-2 text-xs font-bold text-[color:var(--pq-ink)] hover:border-[color:var(--pq-cyan)] hover:text-[color:var(--pq-cyan)]">{preset.label}</button>)}</div>
+             </div>
+             {editing && editing.progress > 0 && <div data-testid="notice-clear-progress" className="border border-[color:var(--pq-mute)] bg-[color:var(--pq-panel)] p-3 text-xs text-[color:var(--pq-gold)]">Today has progress logged ({editing.progress}/{editing.target}). Clear it before changing the habit shape.<div className="mt-2"><Btn testId="button-clear-progress" variant="quiet" className="!py-1.5 text-xs" disabled={isPending(`progressHabit:${editing.id}`)} onClick={() => void run({ action: 'progressHabit', id: editing.id, value: 0, date: s.today })}>Clear today's progress</Btn></div></div>}
+             <Field label="Habit name"><input required maxLength={120} data-testid="input-habit-title" value={draft.title} onChange={(e) => upd('title', e.target.value)} className="field"/></Field>
+             <div className="grid gap-4 sm:grid-cols-2"><Field label="Category"><input required maxLength={40} data-testid="input-habit-category" value={draft.category} onChange={(e) => upd('category', e.target.value)} className="field"/></Field>
+               <Field label="Stat"><select data-testid="select-habit-stat" value={draft.stat} onChange={(e) => upd('stat', e.target.value as RpgActionInputStat)} className="field"><option value="STR">STR (body)</option><option value="INT">INT (mind)</option><option value="WIS">WIS (spirit)</option></select></Field></div>
+             <div className="grid gap-4 sm:grid-cols-2"><Field label="Daily target" hint="1 makes a simple check-off."><input type="number" min={1} max={1000000} step="any" required data-testid="input-habit-target" value={draft.target} onChange={(e) => upd('target', Number(e.target.value))} className="field"/></Field>
+               <Field label="Unit"><input maxLength={30} data-testid="input-habit-unit" value={draft.unit} onChange={(e) => upd('unit', e.target.value)} placeholder="pages, minutes..." className="field"/></Field></div>
+             <Field label="Schedule"><select data-testid="select-habit-frequency" value={draft.frequency} onChange={(e) => upd('frequency', e.target.value as RpgActionInputFrequency)} className="field"><option value="daily">Every day</option><option value="weekly">Custom days</option></select></Field>
+             {draft.frequency === 'weekly' && <fieldset><legend className="mb-2 text-xs font-bold text-[color:var(--pq-ink2)]">Repeat on</legend><div className="flex flex-wrap gap-2">{weekDays.map((d, i) => <button type="button" key={d} data-testid={`button-day-${i}`} aria-pressed={draft.days.includes(i)} onClick={() => upd('days', draft.days.includes(i) ? draft.days.filter((x) => x !== i) : [...draft.days, i].sort())} className={cx('border px-3 py-2 text-xs font-bold', draft.days.includes(i) ? 'border-[color:var(--pq-cyan)] bg-[color:var(--pq-line2)] text-[color:var(--pq-cyan)]' : 'border-[color:var(--pq-line)] text-[color:var(--pq-mute)]')}>{d}</button>)}</div></fieldset>}
+             <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-mandatory" checked={draft.mandatory} onChange={(e) => upd('mandatory', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-gold)]"/><span>Mandatory<span className="block text-[11px] text-[color:var(--pq-mute)]">Each missed scheduled day costs 10 HP (a shield absorbs one).</span></span></label>
+             <label className="flex items-start gap-3 text-sm"><input type="checkbox" data-testid="checkbox-habit-photo-proof" checked={draft.requiresPhotoProof} onChange={(e) => upd('requiresPhotoProof', e.target.checked)} className="mt-1 h-4 w-4 accent-[color:var(--pq-cyan)]"/><span>Require Photo Proof (📸)<span className="block text-[11px] text-[color:var(--pq-mute)]">يتطلب إثباتاً بالصورة للحصول على المكافأة</span></span></label>
+             {err && <p role="alert" className="text-xs text-[color:var(--pq-danger)]">{err}</p>}
+           </div>
+           <div className="-mx-5 -mb-5 mt-3 flex shrink-0 justify-end gap-2 border-t border-[color:var(--pq-line)] bg-[color:var(--pq-panel)] p-5"><Btn testId="button-cancel-habit" variant="quiet" onClick={() => setDraft(null)}>Cancel</Btn><Btn testId="button-save-habit" type="submit" disabled={isPending('saveHabit:editor')}>{isPending('saveHabit:editor') ? 'Saving...' : 'Save habit'}</Btn></div>
+         </form></Modal>}
     </>;
   }}</Gate>;
 }

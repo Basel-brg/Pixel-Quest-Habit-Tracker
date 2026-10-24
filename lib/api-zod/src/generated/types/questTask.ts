@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { QuestTaskDifficulty } from './questTaskDifficulty';
+import type { QuestTaskStat } from './questTaskStat';
 import type { QuestTaskStatus } from './questTaskStatus';
 
 export interface QuestTask {
@@ -15,6 +16,8 @@ export interface QuestTask {
   category: string;
   priority: boolean;
   requiresPhotoProof: boolean;
+  /** @nullable */
+  stat: QuestTaskStat;
   status: QuestTaskStatus;
   /** @nullable */
   dueDate: Date | null;

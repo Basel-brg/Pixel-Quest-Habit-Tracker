@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HabitUpdateFrequency } from './habitUpdateFrequency';
+import type { HabitUpdateStat } from './habitUpdateStat';
 
 export interface HabitUpdate {
   /** @minLength 1 */
@@ -20,4 +21,13 @@ export interface HabitUpdate {
   days?: number[];
   archived?: boolean;
   requiresPhotoProof?: boolean;
+  mandatory?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target?: number;
+  /** @maxLength 30 */
+  unit?: string;
+  stat?: HabitUpdateStat;
 }

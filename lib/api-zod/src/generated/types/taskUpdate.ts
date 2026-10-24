@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TaskUpdateDifficulty } from './taskUpdateDifficulty';
+import type { TaskUpdateStat } from './taskUpdateStat';
 
 export interface TaskUpdate {
   /** @minLength 1 */
@@ -15,6 +16,8 @@ export interface TaskUpdate {
   category?: string;
   priority?: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  stat?: TaskUpdateStat;
   /** @nullable */
   dueDate?: Date | null;
 }

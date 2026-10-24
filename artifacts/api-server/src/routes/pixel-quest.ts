@@ -7,11 +7,13 @@ import {
   PerformRpgActionBody, CreateHabitBody, UpdateHabitBody, CompleteHabitBody, UndoHabitCompletionBody,
   CreateTaskBody, UpdateTaskBody, CreateRewardBody, UpdateRewardBody, UpdatePixelQuestProfileBody,
   GetTasksQueryParams, GetHabitsQueryParams, ParseVoiceBody, ParseVoiceResponse, VerifyPhotoBody, VerifyPhotoResponse,
+  QuestAssistantBody, QuestAssistantResponse,
 } from "@workspace/api-zod";
 import { runGame, GameError, type Action, type ActionOutcome } from "../lib/rpg-game";
 import { levelForXp } from "../lib/rpg-rules";
 import { decodeVoiceAudio, parseVoiceAudio, VoiceProcessingError } from "../lib/voice-intake";
 import { decodePhoto, PhotoVerificationError, verifyPhotoEvidence } from "../lib/photo-verification";
+import { QuestAssistantError, suggestQuestDraft } from "../lib/quest-assistant";
 import { consumeAiRequestLimit } from "../lib/ai-request-limiter";
 
 declare global { namespace Express { interface Request { pixelQuestUserId?: string } } }
@@ -64,9 +66,33 @@ router.use("/ai", async (req, res, next) => {
   try {
     const auth = getAuth(req), claim = auth.sessionClaims?.userId;
     const user = typeof claim === "string" ? claim : auth.userId;
-    if (!user) { res.status(401).json({ error: "Sign in to verify photo proof." }); return; }
+    if (!user) { res.status(401).json({ error: "Sign in to use AI features." }); return; }
     req.pixelQuestUserId = user; await ensureAccount(user); next();
   } catch (e) { next(e); }
+});
+router.post("/ai/quest-assistant", async (req, res) => {
+  const parsed = QuestAssistantBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter a short description for a habit or quest." });
+    return;
+  }
+  if (!(await consumeAiRequestLimit(uid(req), "assistant"))) {
+    res.status(429).json({ error: "Too many AI suggestions. Please wait a minute and try again." });
+    return;
+  }
+  try {
+    const current = await runGame(uid(req));
+    res.json(QuestAssistantResponse.parse(
+      await suggestQuestDraft(parsed.data.itemType, parsed.data.prompt.trim(), current.today),
+    ));
+  } catch (error) {
+    if (error instanceof QuestAssistantError) {
+      if (error.status >= 500) req.log.warn({ status: error.status }, "Quest assistant request failed");
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 router.post("/pixelquest/voice/parse", async (req, res) => {
   if (!(await consumeAiRequestLimit(uid(req), "voice"))) {
@@ -208,12 +234,14 @@ router.get("/pixelquest/tasks", async (req, res) => {
 });
 router.post("/pixelquest/tasks", async (req, res) => {
   const b = CreateTaskBody.parse(req.body);
-  const s = await action(req, { action: "saveQuest", ...b, dueDate: b.dueDate ? String(b.dueDate instanceof Date ? b.dueDate.toISOString() : b.dueDate).slice(0, 10) : null });
+  const { stat, ...task } = b;
+  const s = await action(req, { action: "saveQuest", ...task, questStat: stat, dueDate: b.dueDate ? String(b.dueDate instanceof Date ? b.dueDate.toISOString() : b.dueDate).slice(0, 10) : null });
   res.status(201).json(s.quests[0]);
 });
 router.patch("/pixelquest/tasks/:taskId", async (req, res) => {
   const n = id(req.params.taskId), b = UpdateTaskBody.parse(req.body);
-  res.json(find((await action(req, { action: "saveQuest", ...b, id: n, dueDate: b.dueDate === undefined ? undefined : b.dueDate ? String(b.dueDate instanceof Date ? b.dueDate.toISOString() : b.dueDate).slice(0, 10) : null })).quests, n));
+  const { stat, ...task } = b;
+  res.json(find((await action(req, { action: "saveQuest", ...task, questStat: stat, id: n, dueDate: b.dueDate === undefined ? undefined : b.dueDate ? String(b.dueDate instanceof Date ? b.dueDate.toISOString() : b.dueDate).slice(0, 10) : null })).quests, n));
 });
 router.delete("/pixelquest/tasks/:taskId", async (req, res) => {
   await action(req, { action: "deleteQuest", id: id(req.params.taskId) }); res.sendStatus(204);

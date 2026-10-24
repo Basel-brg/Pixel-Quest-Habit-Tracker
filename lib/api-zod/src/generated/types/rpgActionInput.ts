@@ -9,6 +9,7 @@ import type { AvatarId } from './avatarId';
 import type { RpgActionInputAction } from './rpgActionInputAction';
 import type { RpgActionInputDifficulty } from './rpgActionInputDifficulty';
 import type { RpgActionInputFrequency } from './rpgActionInputFrequency';
+import type { RpgActionInputQuestStat } from './rpgActionInputQuestStat';
 import type { RpgActionInputStat } from './rpgActionInputStat';
 import type { RpgActionInputType } from './rpgActionInputType';
 import type { RpgCondition } from './rpgCondition';
@@ -98,6 +99,8 @@ export interface RpgActionInput {
   timezone?: string;
   chestEnabled?: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  questStat?: RpgActionInputQuestStat;
   equipped?: boolean;
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;

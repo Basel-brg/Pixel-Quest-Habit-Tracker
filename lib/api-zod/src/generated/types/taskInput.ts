@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TaskInputDifficulty } from './taskInputDifficulty';
+import type { TaskInputStat } from './taskInputStat';
 
 export interface TaskInput {
   /** @minLength 1 */
@@ -15,6 +16,8 @@ export interface TaskInput {
   category: string;
   priority: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  stat?: TaskInputStat;
   /** @nullable */
   dueDate?: Date | null;
 }

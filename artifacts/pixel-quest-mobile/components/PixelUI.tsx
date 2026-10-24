@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
 
-type ButtonTone = 'primary' | 'quiet' | 'danger' | 'cyan';
+type ButtonTone = 'primary' | 'quiet' | 'danger' | 'cyan' | 'gold';
 
 export function PixelPage({
   children,
@@ -183,6 +183,7 @@ export function PixelButton({
     quiet: { backgroundColor: colors.secondary, color: colors.foreground },
     danger: { backgroundColor: colors.destructive, color: colors.destructiveForeground },
     cyan: { backgroundColor: colors.cyan, color: colors.accentForeground },
+    gold: { backgroundColor: colors.gold, color: colors.background },
   }[tone];
 
   return (

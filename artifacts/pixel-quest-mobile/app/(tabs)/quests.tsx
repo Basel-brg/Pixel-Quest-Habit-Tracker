@@ -5,17 +5,19 @@ import {
   useCompleteTask,
   useDeleteTask,
   useGetTasks,
+  useQuestAssistant,
   useUndoTaskCompletion,
   useUpdateTask,
 } from '@workspace/api-client-react';
-import type { QuestTaskDifficulty } from '@workspace/api-client-react';
+import type { QuestAssistantResult, QuestTaskDifficulty } from '@workspace/api-client-react';
 import { useState } from 'react';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
-import { invalidatePixelQuest } from '@/lib/pixel-quest';
+import { invalidatePixelQuest, localDateKey } from '@/lib/pixel-quest';
 import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
 import { PhotoProofModal, type PhotoProofTarget } from '@/components/PhotoProofModal';
+import { EntryFormModal } from '@/components/EntryFormModal';
 import {
   ChoiceChip,
   EmptyState,
@@ -32,6 +34,14 @@ import {
 
 type StatusFilter = 'active' | 'completed' | 'all';
 const difficulties: QuestTaskDifficulty[] = ['easy', 'medium', 'hard'];
+type QuestStat = 'STR' | 'INT' | 'WIS' | null;
+const questPresets: { id: string; label: string; title: string; category: string; difficulty: QuestTaskDifficulty; stat: Exclude<QuestStat, null> }[] = [
+  { id: 'workout', label: '🏋️‍♂️ تمرين 30د', title: 'تمرين 30 دقيقة', category: 'Fitness', difficulty: 'easy', stat: 'STR' },
+  { id: 'study', label: '📚 دراسة ساعة', title: 'دراسة ساعة', category: 'Study', difficulty: 'medium', stat: 'INT' },
+  { id: 'water', label: '💧 شرب لتر ماء', title: 'شرب لتر ماء', category: 'Health', difficulty: 'easy', stat: 'STR' },
+  { id: 'room', label: '🧹 ترتيب الغرفة', title: 'ترتيب الغرفة', category: 'Home', difficulty: 'easy', stat: 'WIS' },
+  { id: 'coding', label: '💻 برمجة 45د', title: 'برمجة 45 دقيقة', category: 'Coding', difficulty: 'medium', stat: 'INT' },
+];
 
 function xpReward(difficulty: QuestTaskDifficulty): number {
   if (difficulty === 'easy') return 10;
@@ -45,6 +55,7 @@ export default function QuestsScreen() {
   const offline = useOfflineDrafts();
   const tasksQuery = useGetTasks({ status: 'all' });
   const updateTask = useUpdateTask();
+  const assistant = useQuestAssistant();
   const deleteTask = useDeleteTask();
   const completeTask = useCompleteTask();
   const undoTask = useUndoTaskCompletion();
@@ -59,9 +70,12 @@ export default function QuestsScreen() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [difficulty, setDifficulty] = useState<QuestTaskDifficulty>('medium');
+  const [stat, setStat] = useState<QuestStat>(null);
   const [priority, setPriority] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [requiresPhotoProof, setRequiresPhotoProof] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiError, setAiError] = useState('');
   const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const allTasks = tasksQuery.data ?? [];
   const visibleTasks = allTasks.filter((task) => {
@@ -78,9 +92,12 @@ export default function QuestsScreen() {
     setTitle('');
     setCategory('');
     setDifficulty('medium');
+    setStat(null);
     setPriority(false);
     setDueDate('');
     setRequiresPhotoProof(false);
+    setAiPrompt('');
+    setAiError('');
   };
   const didSave = () => {
     invalidatePixelQuest(queryClient);
@@ -97,9 +114,12 @@ export default function QuestsScreen() {
     setTitle(task.title);
     setCategory(task.category);
     setDifficulty(task.difficulty);
+    setStat(task.stat);
     setPriority(task.priority);
     setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : '');
     setRequiresPhotoProof(task.requiresPhotoProof);
+    setAiPrompt('');
+    setAiError('');
     setShowForm(true);
     setConfirmDeleteId(null);
   };
@@ -111,6 +131,7 @@ export default function QuestsScreen() {
       title: cleanTitle,
       difficulty,
       category: category.trim() || 'Side Quest',
+      stat,
       priority,
       dueDate: dueDate.trim() || null,
       requiresPhotoProof,
@@ -123,7 +144,8 @@ export default function QuestsScreen() {
       updateTask.mutate({ taskId: editingId, data: taskData }, { onSuccess: didSave });
     } else {
       setDraftSaving(true);
-      const input = { action: 'saveQuest' as const, ...taskData, type: 'single' as const, tags: [] };
+      const { stat: questStat, ...taskFields } = taskData;
+      const input = { action: 'saveQuest' as const, ...taskFields, questStat, type: 'single' as const, tags: [] };
       const saved = offlineDraftId
         ? await offline.update(offlineDraftId, input)
         : await offline.add(input);
@@ -140,14 +162,49 @@ export default function QuestsScreen() {
     setTitle(input.title ?? '');
     setCategory(input.category ?? 'Side Quest');
     setDifficulty(input.difficulty ?? 'medium');
+    setStat(input.questStat ?? null);
     setPriority(input.priority ?? false);
     setDueDate(input.dueDate ?? '');
     setRequiresPhotoProof(input.requiresPhotoProof ?? false);
+    setAiPrompt('');
+    setAiError('');
     setShowForm(true);
     setDraftError('');
   };
 
   const validDueDate = !dueDate.trim() || /^\d{4}-\d{2}-\d{2}$/.test(dueDate.trim());
+
+  const applySuggestion = (suggestion: QuestAssistantResult) => {
+    setTitle(suggestion.title);
+    setCategory(suggestion.category);
+    setDifficulty(suggestion.difficulty);
+    setStat(suggestion.stat);
+    setPriority(suggestion.priority);
+    setDueDate(suggestion.dueDate ?? localDateKey());
+  };
+
+  const requestSuggestion = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt) return;
+    if (offline.online === false) {
+      setAiError('المساعدة السحرية تحتاج إلى اتصال بالإنترنت.');
+      return;
+    }
+    setAiError('');
+    try {
+      applySuggestion(await assistant.mutateAsync({ data: { itemType: 'quest', prompt } }));
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'تعذر تحليل الوصف. حاول مرة أخرى.');
+    }
+  };
+
+  const applyPreset = (preset: (typeof questPresets)[number]) => {
+    setTitle(preset.title);
+    setCategory(preset.category);
+    setDifficulty(preset.difficulty);
+    setStat(preset.stat);
+    setDueDate(localDateKey());
+  };
 
   return (
     <PixelPage keyboard>
@@ -174,9 +231,64 @@ export default function QuestsScreen() {
         }
       />
 
-      {showForm ? (
+      <EntryFormModal
+        visible={showForm}
+        title={editingId ? 'EDIT QUEST' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW QUEST'}
+        onClose={clearForm}
+        actions={
+          <View style={styles.formActions}>
+            <PixelButton
+              label={draftSaving || updateTask.isPending ? 'جاري الحفظ...' : 'حفظ'}
+              tone="gold"
+              onPress={saveTask}
+              disabled={!title.trim() || !validDueDate || draftSaving || updateTask.isPending}
+              testID="button-save-quest"
+            />
+            <PixelButton label="إلغاء" tone="quiet" onPress={clearForm} testID="button-cancel-quest" />
+          </View>
+        }
+      >
+        <Panel>
+          <SectionHeading title="مساعدة سحرية ✨" />
+          <Field
+            label="وصف المهمة أو العادة"
+            value={aiPrompt}
+            onChangeText={setAiPrompt}
+            placeholder="🔍 اكتب مهمتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم"
+            multiline
+            maxLength={500}
+            style={{ minHeight: 72, textAlignVertical: 'top' }}
+            testID="input-quest-ai-prompt"
+          />
+          {offline.online === false ? <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>اقتراحات الذكاء الاصطناعي تحتاج إلى اتصال بالإنترنت؛ يمكنك حفظ المهام اليدوية كمسودات دون اتصال.</Text> : null}
+          <PixelButton
+            label={assistant.isPending ? 'جاري التحليل...' : 'مساعدة سحرية ✨'}
+            tone="cyan"
+            onPress={() => void requestSuggestion()}
+            disabled={!aiPrompt.trim() || assistant.isPending || offline.online === false}
+            testID="button-quest-ai-fill"
+          />
+          {aiError ? <Text accessibilityRole="alert" style={{ color: colors.destructive, fontSize: 12 }}>{aiError}</Text> : null}
+        </Panel>
+
+        <Panel>
+          <SectionHeading title="قوالب سريعة" />
+          <View style={styles.chipRow}>
+            {questPresets.map((preset) => (
+              <ChoiceChip
+                key={preset.id}
+                label={preset.label}
+                selected={false}
+                onPress={() => applyPreset(preset)}
+                testID={`quest-template-${preset.id}`}
+              />
+            ))}
+          </View>
+        </Panel>
+
         <Panel>
           <SectionHeading title={editingId ? 'EDIT QUEST' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW QUEST'} />
+          {draftError ? <Text accessibilityRole="alert" style={{ color: colors.destructive, fontSize: 12 }}>{draftError}</Text> : null}
           <Field
             label="QUEST NAME"
             value={title}
@@ -209,6 +321,15 @@ export default function QuestsScreen() {
               ))}
             </View>
           </View>
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>SKILL BONUS · OPTIONAL</Text>
+            <View style={styles.chipRow}>
+              <ChoiceChip label="NONE" selected={stat === null} onPress={() => setStat(null)} testID="quest-stat-none" />
+              {(['STR', 'INT', 'WIS'] as const).map((value) => (
+                <ChoiceChip key={value} label={value} selected={stat === value} onPress={() => setStat(value)} testID={`quest-stat-${value.toLowerCase()}`} />
+              ))}
+            </View>
+          </View>
           <Field
             label="DUE DATE (OPTIONAL)"
             value={dueDate}
@@ -229,7 +350,7 @@ export default function QuestsScreen() {
             onPress={() => setPriority((value) => !value)}
             style={styles.priorityToggle}
           >
-            <Feather name={priority ? 'star' : 'star'} size={17} color={priority ? colors.gold : colors.mutedForeground} />
+            <Feather name="star" size={17} color={priority ? colors.gold : colors.mutedForeground} />
             <Text style={[styles.priorityText, { color: priority ? colors.gold : colors.mutedForeground }]}>
               {priority ? 'PRIORITY QUEST' : 'MARK AS PRIORITY'}
             </Text>
@@ -247,24 +368,15 @@ export default function QuestsScreen() {
           >
             <Feather name="camera" size={17} color={requiresPhotoProof ? colors.cyan : colors.mutedForeground} />
             <View style={styles.photoProofCopy}>
-              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF</Text>
-              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>Must upload a photo to verify completion and claim rewards.</Text>
+              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF (📸)</Text>
+              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>يتطلب إثباتاً بالصورة للحصول على المكافأة</Text>
             </View>
             <View style={[styles.switchTrack, { backgroundColor: requiresPhotoProof ? colors.cyan : colors.secondary }]}>
               <View style={[styles.switchKnob, { backgroundColor: colors.foreground, alignSelf: requiresPhotoProof ? 'flex-end' : 'flex-start' }]} />
             </View>
           </Pressable>
-          <View style={styles.formActions}>
-            <PixelButton
-              label={draftSaving || updateTask.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD QUEST'}
-              onPress={saveTask}
-              disabled={!title.trim() || !validDueDate || draftSaving || updateTask.isPending}
-              testID="button-save-quest"
-            />
-            <PixelButton label="CANCEL" tone="quiet" onPress={clearForm} testID="button-cancel-quest" />
-          </View>
         </Panel>
-      ) : null}
+      </EntryFormModal>
 
       {tasksQuery.error ? <ErrorState message={tasksQuery.error instanceof Error ? tasksQuery.error.message : 'Could not load your quests.'} retry={() => void tasksQuery.refetch()} /> : null}
       {offline.storageError ? <Text accessibilityRole="alert" testID="status-offline-storage-error" style={{ color: colors.destructive, fontSize: 12 }}>{offline.storageError}</Text> : null}
@@ -360,7 +472,7 @@ export default function QuestsScreen() {
               )}
               <View style={styles.taskCopy}>
                 <Text style={[styles.taskTitle, { color: task.status === 'completed' ? colors.mutedForeground : colors.foreground }]}>{task.title}</Text>
-                <MetaText>{task.category.toUpperCase()}</MetaText>
+                <MetaText>{task.category.toUpperCase()}{task.stat ? ` · ${task.stat}` : ''}</MetaText>
               </View>
               {task.priority ? <Feather name="star" size={15} color={colors.gold} /> : null}
             </View>

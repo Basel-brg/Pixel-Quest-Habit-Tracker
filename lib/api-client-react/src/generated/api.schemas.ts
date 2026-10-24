@@ -64,6 +64,15 @@ export const HabitFrequency = {
   weekly: 'weekly',
 } as const;
 
+export type HabitStat = typeof HabitStat[keyof typeof HabitStat];
+
+
+export const HabitStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export interface Habit {
   id: number;
   title: string;
@@ -72,6 +81,10 @@ export interface Habit {
   days: number[];
   archived: boolean;
   requiresPhotoProof: boolean;
+  mandatory: boolean;
+  target: number;
+  unit: string;
+  stat: HabitStat;
   createdAt: string;
   completedDates: string[];
 }
@@ -105,6 +118,18 @@ export const QuestTaskDifficulty = {
   hard: 'hard',
 } as const;
 
+/**
+ * @nullable
+ */
+export type QuestTaskStat = typeof QuestTaskStat[keyof typeof QuestTaskStat] | null;
+
+
+export const QuestTaskStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export type QuestTaskStatus = typeof QuestTaskStatus[keyof typeof QuestTaskStatus];
 
 
@@ -120,6 +145,8 @@ export interface QuestTask {
   category: string;
   priority: boolean;
   requiresPhotoProof: boolean;
+  /** @nullable */
+  stat: QuestTaskStat;
   status: QuestTaskStatus;
   /** @nullable */
   dueDate: string | null;
@@ -407,6 +434,18 @@ export const RpgActionInputType = {
   weekly: 'weekly',
 } as const;
 
+/**
+ * @nullable
+ */
+export type RpgActionInputQuestStat = typeof RpgActionInputQuestStat[keyof typeof RpgActionInputQuestStat] | null;
+
+
+export const RpgActionInputQuestStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export interface RpgActionInput {
   /**
      * @minLength 8
@@ -491,6 +530,8 @@ export interface RpgActionInput {
   timezone?: string;
   chestEnabled?: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  questStat?: RpgActionInputQuestStat;
   equipped?: boolean;
   /** @pattern ^[A-Za-z0-9_]{3,20}$ */
   username?: string;
@@ -557,6 +598,94 @@ export interface PhotoVerificationResult {
      */
   reason: string;
   snapshot?: RpgSnapshot;
+}
+
+export type QuestAssistantInputItemType = typeof QuestAssistantInputItemType[keyof typeof QuestAssistantInputItemType];
+
+
+export const QuestAssistantInputItemType = {
+  habit: 'habit',
+  quest: 'quest',
+} as const;
+
+export interface QuestAssistantInput {
+  itemType: QuestAssistantInputItemType;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  prompt: string;
+}
+
+export type QuestAssistantResultItemType = typeof QuestAssistantResultItemType[keyof typeof QuestAssistantResultItemType];
+
+
+export const QuestAssistantResultItemType = {
+  habit: 'habit',
+  quest: 'quest',
+} as const;
+
+/**
+ * @nullable
+ */
+export type QuestAssistantResultStat = typeof QuestAssistantResultStat[keyof typeof QuestAssistantResultStat] | null;
+
+
+export const QuestAssistantResultStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
+export type QuestAssistantResultFrequency = typeof QuestAssistantResultFrequency[keyof typeof QuestAssistantResultFrequency];
+
+
+export const QuestAssistantResultFrequency = {
+  daily: 'daily',
+  weekly: 'weekly',
+} as const;
+
+export type QuestAssistantResultDifficulty = typeof QuestAssistantResultDifficulty[keyof typeof QuestAssistantResultDifficulty];
+
+
+export const QuestAssistantResultDifficulty = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+} as const;
+
+export interface QuestAssistantResult {
+  itemType: QuestAssistantResultItemType;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  category: string;
+  /** @nullable */
+  stat: QuestAssistantResultStat;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target: number;
+  /** @maxLength 30 */
+  unit: string;
+  frequency: QuestAssistantResultFrequency;
+  /**
+     * @maxItems 7
+     * @items.minimum 0
+     * @items.maximum 6
+     */
+  days: number[];
+  difficulty: QuestAssistantResultDifficulty;
+  priority: boolean;
+  /** @nullable */
+  dueDate: string | null;
 }
 
 export type VoiceTaskDifficulty = typeof VoiceTaskDifficulty[keyof typeof VoiceTaskDifficulty];
@@ -638,6 +767,15 @@ export const HabitInputFrequency = {
   weekly: 'weekly',
 } as const;
 
+export type HabitInputStat = typeof HabitInputStat[keyof typeof HabitInputStat];
+
+
+export const HabitInputStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export interface HabitInput {
   /** @minLength 1 */
   title: string;
@@ -650,6 +788,15 @@ export interface HabitInput {
      */
   days: number[];
   requiresPhotoProof?: boolean;
+  mandatory?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target?: number;
+  /** @maxLength 30 */
+  unit?: string;
+  stat?: HabitInputStat;
 }
 
 export type HabitUpdateFrequency = typeof HabitUpdateFrequency[keyof typeof HabitUpdateFrequency];
@@ -658,6 +805,15 @@ export type HabitUpdateFrequency = typeof HabitUpdateFrequency[keyof typeof Habi
 export const HabitUpdateFrequency = {
   daily: 'daily',
   weekly: 'weekly',
+} as const;
+
+export type HabitUpdateStat = typeof HabitUpdateStat[keyof typeof HabitUpdateStat];
+
+
+export const HabitUpdateStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
 } as const;
 
 export interface HabitUpdate {
@@ -673,6 +829,15 @@ export interface HabitUpdate {
   days?: number[];
   archived?: boolean;
   requiresPhotoProof?: boolean;
+  mandatory?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  target?: number;
+  /** @maxLength 30 */
+  unit?: string;
+  stat?: HabitUpdateStat;
 }
 
 export interface CompletionInput {
@@ -692,6 +857,18 @@ export const TaskInputDifficulty = {
   hard: 'hard',
 } as const;
 
+/**
+ * @nullable
+ */
+export type TaskInputStat = typeof TaskInputStat[keyof typeof TaskInputStat] | null;
+
+
+export const TaskInputStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export interface TaskInput {
   /** @minLength 1 */
   title: string;
@@ -700,6 +877,8 @@ export interface TaskInput {
   category: string;
   priority: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  stat?: TaskInputStat;
   /** @nullable */
   dueDate?: string | null;
 }
@@ -713,6 +892,18 @@ export const TaskUpdateDifficulty = {
   hard: 'hard',
 } as const;
 
+/**
+ * @nullable
+ */
+export type TaskUpdateStat = typeof TaskUpdateStat[keyof typeof TaskUpdateStat] | null;
+
+
+export const TaskUpdateStat = {
+  STR: 'STR',
+  INT: 'INT',
+  WIS: 'WIS',
+} as const;
+
 export interface TaskUpdate {
   /** @minLength 1 */
   title?: string;
@@ -721,6 +912,8 @@ export interface TaskUpdate {
   category?: string;
   priority?: boolean;
   requiresPhotoProof?: boolean;
+  /** @nullable */
+  stat?: TaskUpdateStat;
   /** @nullable */
   dueDate?: string | null;
 }

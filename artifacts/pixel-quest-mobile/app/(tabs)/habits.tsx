@@ -4,14 +4,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   useCompleteHabit,
   useGetHabits,
+  useQuestAssistant,
   useUndoHabitCompletion,
   useUpdateHabit,
 } from '@workspace/api-client-react';
-import type { Habit } from '@workspace/api-client-react';
+import type { Habit, QuestAssistantResult, RpgActionInputStat } from '@workspace/api-client-react';
 import { useState } from 'react';
 import { StyleSheet} from 'react-native';
 import { Pressable, Text, View } from "@/components/Themed";
 import { useColors } from '@/hooks/useColors';
+import { EntryFormModal } from '@/components/EntryFormModal';
 import { HabitReminderControls } from '@/components/HabitReminderControls';
 import { useHabitReminders } from '@/lib/habit-reminders';
 import { useOfflineDrafts, type ManualDraft } from '@/lib/offline-drafts';
@@ -36,6 +38,12 @@ import {
 } from '@/components/PixelUI';
 
 const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const habitPresets: { id: string; label: string; title: string; category: string; stat: RpgActionInputStat; target: number; unit: string }[] = [
+  { id: 'water', label: '💧 شرب 2.5 لتر ماء', title: 'شرب 2.5 لتر ماء', category: 'Health', stat: 'STR', target: 2.5, unit: 'لتر' },
+  { id: 'reading', label: '📖 قراءة 15 صفحة', title: 'قراءة 15 صفحة', category: 'Learning', stat: 'INT', target: 15, unit: 'صفحة' },
+  { id: 'meditation', label: '🧘 تأمل 10 دقائق', title: 'تأمل 10 دقائق', category: 'Mindfulness', stat: 'WIS', target: 10, unit: 'دقيقة' },
+  { id: 'walking', label: '🏃‍♂️ مشي 6000 خطوة', title: 'مشي 6000 خطوة', category: 'Fitness', stat: 'STR', target: 6000, unit: 'خطوة' },
+];
 
 export default function HabitsScreen() {
   const colors = useColors();
@@ -50,12 +58,18 @@ export default function HabitsScreen() {
   const [draftError, setDraftError] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
+  const [stat, setStat] = useState<RpgActionInputStat>('STR');
+  const [target, setTarget] = useState('1');
+  const [unit, setUnit] = useState('time');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [days, setDays] = useState<number[]>([]);
   const [requiresPhotoProof, setRequiresPhotoProof] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiError, setAiError] = useState('');
   const [photoTarget, setPhotoTarget] = useState<PhotoProofTarget | null>(null);
   const habitsQuery = useGetHabits({ archived: showArchived });
   const updateHabit = useUpdateHabit();
+  const assistant = useQuestAssistant();
   const completeHabit = useCompleteHabit();
   const undoHabit = useUndoHabitCompletion();
   const today = localDateKey();
@@ -68,9 +82,14 @@ export default function HabitsScreen() {
     setDraftError('');
     setTitle('');
     setCategory('');
+    setStat('STR');
+    setTarget('1');
+    setUnit('time');
     setFrequency('daily');
     setDays([]);
     setRequiresPhotoProof(false);
+    setAiPrompt('');
+    setAiError('');
   };
   const updated = () => {
     invalidatePixelQuest(queryClient);
@@ -86,18 +105,31 @@ export default function HabitsScreen() {
     setEditingId(habit.id);
     setTitle(habit.title);
     setCategory(habit.category);
+    setStat(habit.stat);
+    setTarget(String(habit.target));
+    setUnit(habit.unit);
     setFrequency(habit.frequency);
     setDays(habit.days);
     setRequiresPhotoProof(habit.requiresPhotoProof);
+    setAiPrompt('');
+    setAiError('');
     setShowForm(true);
   };
 
   const saveHabit = async () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
+    const numericTarget = Number(target);
+    if (!Number.isFinite(numericTarget) || numericTarget < 1 || numericTarget > 1_000_000) {
+      setDraftError('Enter a target between 1 and 1,000,000.');
+      return;
+    }
     const habitData = {
       title: cleanTitle,
       category: category.trim() || 'Personal',
+      stat,
+      target: numericTarget,
+      unit: unit.trim() || 'completion',
       frequency,
       days: frequency === 'daily' ? [] : days,
       requiresPhotoProof,
@@ -131,11 +163,51 @@ export default function HabitsScreen() {
     setOfflineDraftId(draft.id);
     setTitle(input.title ?? '');
     setCategory(input.category ?? 'Personal');
+    setStat(input.stat ?? 'STR');
+    setTarget(String(input.target ?? 1));
+    setUnit(input.unit ?? 'completion');
     setFrequency(input.frequency ?? 'daily');
     setDays(input.days ?? []);
     setRequiresPhotoProof(input.requiresPhotoProof ?? false);
+    setAiPrompt('');
+    setAiError('');
     setShowForm(true);
     setDraftError('');
+  };
+
+  const applySuggestion = (suggestion: QuestAssistantResult) => {
+    setTitle(suggestion.title);
+    setCategory(suggestion.category);
+    setStat(suggestion.stat ?? 'STR');
+    setTarget(String(suggestion.target));
+    setUnit(suggestion.unit);
+    setFrequency(suggestion.frequency);
+    setDays(suggestion.frequency === 'daily' ? [] : suggestion.days);
+  };
+
+  const requestSuggestion = async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt) return;
+    if (offline.online === false) {
+      setAiError('المساعدة السحرية تحتاج إلى اتصال بالإنترنت.');
+      return;
+    }
+    setAiError('');
+    try {
+      applySuggestion(await assistant.mutateAsync({ data: { itemType: 'habit', prompt } }));
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'تعذر تحليل الوصف. حاول مرة أخرى.');
+    }
+  };
+
+  const applyPreset = (preset: (typeof habitPresets)[number]) => {
+    setTitle(preset.title);
+    setCategory(preset.category);
+    setStat(preset.stat);
+    setTarget(String(preset.target));
+    setUnit(preset.unit);
+    setFrequency('daily');
+    setDays([]);
   };
 
   const toggleDay = (day: number) => {
@@ -180,9 +252,64 @@ export default function HabitsScreen() {
       {offline.storageError ? <Text accessibilityRole="alert" testID="status-offline-storage-error" style={{ color: colors.destructive, fontSize: 12 }}>{offline.storageError}</Text> : null}
       {draftError ? <Text accessibilityRole="alert" testID="status-habit-draft-error" style={{ color: colors.destructive, fontSize: 12 }}>{draftError}</Text> : null}
 
-      {showForm ? (
+      <EntryFormModal
+        visible={showForm}
+        title={editingId ? 'EDIT HABIT' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW HABIT'}
+        onClose={clearForm}
+        actions={
+          <View style={styles.formActions}>
+            <PixelButton
+              label={draftSaving || updateHabit.isPending ? 'جاري الحفظ...' : 'حفظ'}
+              tone="gold"
+              onPress={saveHabit}
+              disabled={!title.trim() || draftSaving || updateHabit.isPending || (frequency === 'weekly' && days.length === 0)}
+              testID="button-save-habit"
+            />
+            <PixelButton label="إلغاء" tone="quiet" onPress={clearForm} testID="button-cancel-habit" />
+          </View>
+        }
+      >
+        <Panel>
+          <SectionHeading title="مساعدة سحرية ✨" />
+          <Field
+            label="وصف المهمة أو العادة"
+            value={aiPrompt}
+            onChangeText={setAiPrompt}
+            placeholder="🔍 اكتب مهمتك هنا.. مثلاً: دراسة رياضيات ساعة اليوم"
+            multiline
+            maxLength={500}
+            style={{ minHeight: 72, textAlignVertical: 'top' }}
+            testID="input-habit-ai-prompt"
+          />
+          {offline.online === false ? <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>اقتراحات الذكاء الاصطناعي تحتاج إلى اتصال بالإنترنت؛ يمكنك حفظ العادات اليدوية كمسودات دون اتصال.</Text> : null}
+          <PixelButton
+            label={assistant.isPending ? 'جاري التحليل...' : 'مساعدة سحرية ✨'}
+            tone="cyan"
+            onPress={() => void requestSuggestion()}
+            disabled={!aiPrompt.trim() || assistant.isPending || offline.online === false}
+            testID="button-habit-ai-fill"
+          />
+          {aiError ? <Text accessibilityRole="alert" style={{ color: colors.destructive, fontSize: 12 }}>{aiError}</Text> : null}
+        </Panel>
+
+        <Panel>
+          <SectionHeading title="قوالب سريعة" />
+          <View style={styles.chipRow}>
+            {habitPresets.map((preset) => (
+              <ChoiceChip
+                key={preset.id}
+                label={preset.label}
+                selected={false}
+                onPress={() => applyPreset(preset)}
+                testID={`habit-template-${preset.id}`}
+              />
+            ))}
+          </View>
+        </Panel>
+
         <Panel>
           <SectionHeading title={editingId ? 'EDIT HABIT' : offlineDraftId ? 'EDIT SAVED DRAFT' : 'NEW HABIT'} />
+          {draftError ? <Text accessibilityRole="alert" style={{ color: colors.destructive, fontSize: 12 }}>{draftError}</Text> : null}
           <Field
             label="HABIT NAME"
             value={title}
@@ -201,6 +328,36 @@ export default function HabitsScreen() {
             maxLength={28}
             testID="input-habit-category"
           />
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>STAT</Text>
+            <View style={styles.chipRow}>
+              {(['STR', 'INT', 'WIS'] as const).map((value) => (
+                <ChoiceChip key={value} label={value} selected={stat === value} onPress={() => setStat(value)} testID={`habit-stat-${value.toLowerCase()}`} />
+              ))}
+            </View>
+          </View>
+          <View style={styles.targetRow}>
+            <View style={styles.targetField}>
+              <Field
+                label="DAILY TARGET"
+                value={target}
+                onChangeText={setTarget}
+                placeholder="1"
+                keyboardType="decimal-pad"
+                testID="input-habit-target"
+              />
+            </View>
+            <View style={styles.targetField}>
+              <Field
+                label="UNIT"
+                value={unit}
+                onChangeText={setUnit}
+                placeholder="pages, minutes..."
+                maxLength={30}
+                testID="input-habit-unit"
+              />
+            </View>
+          </View>
           <View style={styles.chipRow}>
             <ChoiceChip label="DAILY" selected={frequency === 'daily'} onPress={() => setFrequency('daily')} testID="frequency-daily" />
             <ChoiceChip label="WEEKLY SCHEDULE" selected={frequency === 'weekly'} onPress={() => setFrequency('weekly')} testID="frequency-weekly" />
@@ -241,24 +398,15 @@ export default function HabitsScreen() {
           >
             <Feather name="camera" size={17} color={requiresPhotoProof ? colors.cyan : colors.mutedForeground} />
             <View style={styles.photoProofCopy}>
-              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF</Text>
-              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>Must upload a photo to verify completion and claim rewards.</Text>
+              <Text style={[styles.priorityText, { color: requiresPhotoProof ? colors.cyan : colors.mutedForeground }]}>REQUIRE PHOTO PROOF (📸)</Text>
+              <Text style={[styles.photoProofHint, { color: colors.mutedForeground }]}>يتطلب إثباتاً بالصورة للحصول على المكافأة</Text>
             </View>
             <View style={[styles.switchTrack, { backgroundColor: requiresPhotoProof ? colors.cyan : colors.secondary }]}>
               <View style={[styles.switchKnob, { backgroundColor: colors.foreground, alignSelf: requiresPhotoProof ? 'flex-end' : 'flex-start' }]} />
             </View>
           </Pressable>
-          <View style={styles.formActions}>
-            <PixelButton
-              label={draftSaving || updateHabit.isPending ? 'SAVING...' : editingId || offlineDraftId ? 'SAVE CHANGES' : 'ADD HABIT'}
-              onPress={saveHabit}
-              disabled={!title.trim() || draftSaving || updateHabit.isPending || (frequency === 'weekly' && days.length === 0)}
-              testID="button-save-habit"
-            />
-            <PixelButton label="CANCEL" tone="quiet" onPress={clearForm} testID="button-cancel-habit" />
-          </View>
         </Panel>
-      ) : null}
+      </EntryFormModal>
 
       {offline.drafts.filter(draft => draft.kind === 'habit').length ? (
         <View>
@@ -401,7 +549,11 @@ export default function HabitsScreen() {
 const styles = StyleSheet.create({
   addButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   filterRow: { flexDirection: 'row', gap: 8 },
+  fieldGroup: { gap: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  fieldLabel: { fontFamily: 'DMSans_700Bold', fontSize: 11 },
+  targetRow: { flexDirection: 'row', gap: 12 },
+  targetField: { flex: 1 },
   dayPicker: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
   dayButton: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontFamily: 'DMSans_700Bold', fontSize: 12 },

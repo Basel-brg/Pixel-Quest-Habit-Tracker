@@ -233,7 +233,7 @@ class Game {
       case "saveQuest": {
         const q = a.id ? own(this.quests, a.id) : undefined;
         if (a.dueDate && !validateDate(a.dueDate)) fail("Use a valid YYYY-MM-DD due date.", 400);
-        const data = { title: a.title !== undefined ? titleOf(a) : q?.title ?? fail("Title required.", 400), category: a.category?.trim() || q?.category || "Personal", difficulty: a.difficulty ?? q?.difficulty ?? "medium", priority: a.priority ?? q?.priority ?? false, requiresPhotoProof: a.requiresPhotoProof ?? q?.requiresPhotoProof ?? false, dueDate: a.dueDate !== undefined ? a.dueDate : q?.dueDate ?? null };
+        const data = { title: a.title !== undefined ? titleOf(a) : q?.title ?? fail("Title required.", 400), category: a.category?.trim() || q?.category || "Personal", difficulty: a.difficulty ?? q?.difficulty ?? "medium", priority: a.priority ?? q?.priority ?? false, requiresPhotoProof: a.requiresPhotoProof ?? q?.requiresPhotoProof ?? false, stat: a.questStat !== undefined ? a.questStat : q?.stat ?? null, dueDate: a.dueDate !== undefined ? a.dueDate : q?.dueDate ?? null };
         const [saved] = q ? await this.tx.update(questTasksTable).set(data).where(and(eq(questTasksTable.id, q.id), eq(questTasksTable.userId, this.uid))).returning() : await this.tx.insert(questTasksTable).values({ ...data, userId: this.uid, createdAt: this.now }).returning();
         this.quests = [saved, ...this.quests.filter(x => x.id !== saved.id)];
         this.j.quests[saved.id] = { tags: a.tags ?? this.j.quests[saved.id]?.tags ?? [], type: a.type ?? this.j.quests[saved.id]?.type ?? "single" };
@@ -253,7 +253,7 @@ class Game {
         if (!completed && this.j.bosses.some(b => b.defeated && b.taskIds.includes(q.id))) fail("This quest defeated a boss and cannot be reopened.");
         const first = !this.j.awards[key];
         if (completed) {
-          await this.grant(key, { xp: xpAmount(XP[q.difficulty as keyof typeof XP], 0, this.j, this.now), gold: GOLD[q.difficulty as keyof typeof GOLD], date: this.today, title: q.title, kind: "quest" });
+          await this.grant(key, { xp: xpAmount(XP[q.difficulty as keyof typeof XP], 0, this.j, this.now), gold: GOLD[q.difficulty as keyof typeof GOLD], ...(q.stat ? { stat: q.stat } : {}), date: this.today, title: q.title, kind: "quest" });
           this.player.lifetimeTasksVanquished++;
           if (first) for (const row of this.rewards.filter(r => !r.claimedAt)) {
             const r = this.j.rewards[row.id];

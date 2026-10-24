@@ -4,7 +4,7 @@ import { aiRequestRateLimitsTable, db } from "@workspace/db";
 const REQUEST_LIMIT = 5;
 const WINDOW_MS = 60_000;
 
-export type AiEndpoint = "voice" | "photo";
+export type AiEndpoint = "voice" | "photo" | "assistant";
 
 /**
  * Records an AI request atomically in PostgreSQL so the user limit is shared

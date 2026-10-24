@@ -78,6 +78,7 @@ export const questTasksTable = pgTable("pixel_quest_tasks", {
   category: text("category").notNull(),
   priority: boolean("priority").notNull().default(false),
   requiresPhotoProof: boolean("requires_photo_proof").notNull().default(false),
+  stat: text("stat").$type<"STR" | "INT" | "WIS">(),
   status: text("status").notNull().default("active"),
   dueDate: date("due_date", { mode: "string" }),
   createdAt: timestamp("created_at", { withTimezone: true })

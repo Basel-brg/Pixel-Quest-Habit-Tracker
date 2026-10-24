@@ -71,6 +71,18 @@ test("quest payouts and reopened quest payouts stay exact after edits", async ()
     }
   }
 });
+test("optional quest stat bonuses award and reverse only the selected skill", async () => {
+  const uid = await account();
+  let s = await act(uid, { action: "saveQuest", title: "Study", difficulty: "easy", questStat: "INT" });
+  const id = s.quests[0].id;
+  assert.equal(s.quests[0].stat, "INT");
+  s = await act(uid, { action: "completeQuest", id });
+  assert.equal(s.skills.INT, 1);
+  assert.equal(s.skills.STR, 0);
+  assert.equal(s.skills.WIS, 0);
+  s = await act(uid, { action: "completeQuest", id, completed: false });
+  assert.equal(s.skills.INT, 0);
+});
 test("photo proof defaults off and gates protected RPG completions without changing standard payouts", async () => {
   const uid = await account();
   let s = await act(uid, { action: "saveHabit", title: "Unprotected habit" });

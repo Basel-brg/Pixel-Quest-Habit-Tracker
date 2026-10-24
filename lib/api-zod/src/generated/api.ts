@@ -66,6 +66,10 @@ export const GetRpgStateResponse = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 }).and(zod.object({
@@ -91,6 +95,7 @@ export const GetRpgStateResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -299,6 +304,7 @@ export const PerformRpgActionBody = zod.object({
   "timezone": zod.string().max(performRpgActionBodyTimezoneMax).optional(),
   "chestEnabled": zod.boolean().optional(),
   "requiresPhotoProof": zod.boolean().optional(),
+  "questStat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullish(),
   "equipped": zod.boolean().optional(),
   "username": zod.string().regex(performRpgActionBodyUsernameRegExp).optional(),
   "avatarId": zod.enum(['novice', 'squire', 'knight', 'paladin']).optional(),
@@ -360,6 +366,10 @@ export const PerformRpgActionResponse = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 }).and(zod.object({
@@ -385,6 +395,7 @@ export const PerformRpgActionResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -636,6 +647,10 @@ export const VerifyPhotoResponse = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 }).and(zod.object({
@@ -661,6 +676,7 @@ export const VerifyPhotoResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -776,6 +792,48 @@ export const VerifyPhotoResponse = zod.object({
   "message": zod.string(),
   "effect": zod.enum(['none', 'complete', 'boss', 'reward'])
 }).optional()
+})
+
+
+/**
+ * @summary Suggest a habit or quest draft from a short text prompt
+ */
+export const questAssistantBodyPromptMax = 500;
+
+
+
+export const QuestAssistantBody = zod.object({
+  "itemType": zod.enum(['habit', 'quest']),
+  "prompt": zod.string().min(1).max(questAssistantBodyPromptMax)
+})
+
+export const questAssistantResponseTitleMax = 120;
+
+export const questAssistantResponseCategoryMax = 40;
+
+export const questAssistantResponseTargetMax = 1000000;
+
+export const questAssistantResponseUnitMax = 30;
+
+export const questAssistantResponseDaysItemMin = 0;
+export const questAssistantResponseDaysItemMax = 6;
+
+export const questAssistantResponseDaysMax = 7;
+
+
+
+export const QuestAssistantResponse = zod.object({
+  "itemType": zod.enum(['habit', 'quest']),
+  "title": zod.string().min(1).max(questAssistantResponseTitleMax),
+  "category": zod.string().min(1).max(questAssistantResponseCategoryMax),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
+  "target": zod.number().min(1).max(questAssistantResponseTargetMax),
+  "unit": zod.string().max(questAssistantResponseUnitMax),
+  "frequency": zod.enum(['daily', 'weekly']),
+  "days": zod.array(zod.number().int().min(questAssistantResponseDaysItemMin).max(questAssistantResponseDaysItemMax)).max(questAssistantResponseDaysMax),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
+  "priority": zod.boolean(),
+  "dueDate": zod.coerce.date().nullable()
 })
 
 
@@ -914,6 +972,10 @@ export const GetHabitsResponseItem = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -928,6 +990,10 @@ export const GetHabitsResponse = zod.array(GetHabitsResponseItem)
 export const createHabitBodyDaysItemMin = 0;
 export const createHabitBodyDaysItemMax = 6;
 
+export const createHabitBodyTargetMax = 1000000;
+
+export const createHabitBodyUnitMax = 30;
+
 
 
 export const CreateHabitBody = zod.object({
@@ -935,7 +1001,11 @@ export const CreateHabitBody = zod.object({
   "category": zod.string().min(1),
   "frequency": zod.enum(['daily', 'weekly']),
   "days": zod.array(zod.number().int().min(createHabitBodyDaysItemMin).max(createHabitBodyDaysItemMax)),
-  "requiresPhotoProof": zod.boolean().optional()
+  "requiresPhotoProof": zod.boolean().optional(),
+  "mandatory": zod.boolean().optional(),
+  "target": zod.number().min(1).max(createHabitBodyTargetMax).optional(),
+  "unit": zod.string().max(createHabitBodyUnitMax).optional(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']).optional()
 })
 
 export const CreateHabitResponse = zod.object({
@@ -946,6 +1016,10 @@ export const CreateHabitResponse = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -963,6 +1037,10 @@ export const UpdateHabitParams = zod.object({
 export const updateHabitBodyDaysItemMin = 0;
 export const updateHabitBodyDaysItemMax = 6;
 
+export const updateHabitBodyTargetMax = 1000000;
+
+export const updateHabitBodyUnitMax = 30;
+
 
 
 export const UpdateHabitBody = zod.object({
@@ -971,7 +1049,11 @@ export const UpdateHabitBody = zod.object({
   "frequency": zod.enum(['daily', 'weekly']).optional(),
   "days": zod.array(zod.number().int().min(updateHabitBodyDaysItemMin).max(updateHabitBodyDaysItemMax)).optional(),
   "archived": zod.boolean().optional(),
-  "requiresPhotoProof": zod.boolean().optional()
+  "requiresPhotoProof": zod.boolean().optional(),
+  "mandatory": zod.boolean().optional(),
+  "target": zod.number().min(1).max(updateHabitBodyTargetMax).optional(),
+  "unit": zod.string().max(updateHabitBodyUnitMax).optional(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']).optional()
 })
 
 export const UpdateHabitResponse = zod.object({
@@ -982,6 +1064,10 @@ export const UpdateHabitResponse = zod.object({
   "days": zod.array(zod.number().int()),
   "archived": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "mandatory": zod.boolean(),
+  "target": zod.number(),
+  "unit": zod.string(),
+  "stat": zod.enum(['STR', 'INT', 'WIS']),
   "createdAt": zod.coerce.date(),
   "completedDates": zod.array(zod.coerce.date())
 })
@@ -1043,6 +1129,7 @@ export const GetTasksResponseItem = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -1064,6 +1151,7 @@ export const CreateTaskBody = zod.object({
   "category": zod.string().min(1),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean().optional(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullish(),
   "dueDate": zod.coerce.date().nullish()
 })
 
@@ -1074,6 +1162,7 @@ export const CreateTaskResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -1098,6 +1187,7 @@ export const UpdateTaskBody = zod.object({
   "category": zod.string().min(1).optional(),
   "priority": zod.boolean().optional(),
   "requiresPhotoProof": zod.boolean().optional(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullish(),
   "dueDate": zod.coerce.date().nullish()
 })
 
@@ -1108,6 +1198,7 @@ export const UpdateTaskResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
@@ -1162,6 +1253,7 @@ export const UndoTaskCompletionResponse = zod.object({
   "category": zod.string(),
   "priority": zod.boolean(),
   "requiresPhotoProof": zod.boolean(),
+  "stat": zod.union([zod.literal('STR'),zod.literal('INT'),zod.literal('WIS'),zod.literal(null)]).nullable(),
   "status": zod.enum(['active', 'completed']),
   "dueDate": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date(),
