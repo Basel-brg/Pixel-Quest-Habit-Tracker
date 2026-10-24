@@ -174,6 +174,7 @@ export default function OnboardingScreen() {
   // Android hardware back walks the wizard (server-confirmed), never into the app.
   const goRef = useRef<(to: number) => void>(() => undefined);
   useEffect(() => {
+    if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { const f = formRef.current; if (f && f.step > 1) { goRef.current(f.step - 1); return true; } return false; });
     return () => sub.remove();
   }, []);
